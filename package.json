@@ -1,0 +1,16 @@
+{
+  "name": "degis",
+  "version": "0.1.0",
+  "description": "Decentralized Insurance",
+  "author": "liyang",
+  "homepage": "http://.",
+  "dependencies": {
+    "@openzeppelin/contracts": "4.1.0",
+    "@truffle/hdwallet-provider": "^1.4.0",
+    "web3": "1.3.4"
+  },
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  }
+}
