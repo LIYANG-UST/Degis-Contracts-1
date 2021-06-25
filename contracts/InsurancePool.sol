@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import "./InsuranceMain.sol"; //不对--=-=-
 //import "./interfaces/IERC20.sol";
 import "./DegisToken.sol";
+import "./libraries/Queue.sol";
 //import "@openzeppelin/contracts/access/Ownable.sol";
 
 
@@ -33,8 +34,10 @@ contract InsurancePool {
     uint256 availableCapacity;
     // active premiums = premiums have been paid but the policies haven't expired
     uint256 activePremiums;
+    // rewardCollected is total income from premium
+    uint256 rewardCollected;
     // collateral factor = asset / max risk exposure, initially need to be >100%
-    uint256 public collateralFactor;
+    fixed public collateralFactor;
     // poolInfo: the information about this pool
     struct poolInfo {
         string poolName;
@@ -43,6 +46,8 @@ contract InsurancePool {
         uint256 lastRewardBlock;
         uint256 degisPerBlock;
     }
+
+    Queue UnstakeRequest[] requestList;
 
     event Stake(address indexed userAddress, uint256 amount);
     event Unstake(address indexed userAddress, uint256 amount);
@@ -63,6 +68,15 @@ contract InsurancePool {
         _;
     }
 
+    // @fucntion getTotalLocked: view how many assets are locked currently
+    function getTotalLocked() public view returns(uint256) {
+        return lockedBalance;
+    }
+    // @function getAvailableCapacity: view the pool's available capacity
+    function getAvailableCapacity() public view returns(uint256) {
+        return availableCapacity;
+    }
+
     // @function setCollateralFactor: change the collateral factor only by the owner
     // @param factor: the new collateral factor
     function setCollateralFactor(uint256 _factor) public onlyOwner {
@@ -72,22 +86,23 @@ contract InsurancePool {
 
     // @function checkWhenBuy: check the conditions when buying policies
     // @param payoff: the payoff of the policy to be bought
-    function checkWhenBuy(uint256 payoff) external {
-        require(availableCapacity >= payoff,
+    modifier checkWhenBuy(uint256 _payoff) {
+        require(availableCapacity >= _payoff,
                 "not sufficient risk capacity for this policy");
+        _;
     }
 
     // @function updateWhenBuy: update the pool variables when buying policies
     // @param premium: the premium of the policy just sold
     // @param payoff: the payoff of the policy just sold
-    function updateWhenBuy(uint256 _premium, uint256 _payoff) external {
+    function updateWhenBuy(uint256 _premium, uint256 _payoff) external checkWhenBuy(_payoff) {
         lockedBalance += _payoff;
         activePremiums += _premium;
         availableCapacity -= _payoff;
         lockedRatio = lockedBalance / currentStakingBalance;
     }
 
-    // @function stake: a user want to stake some amount of asset
+    // @function stake: a user(LP) want to stake some amount of asset
     // @param userAddress: user's address
     // @param amount: the amount that the user want to stake
     function stake(address userAddress, uint256 amount) public {
@@ -95,11 +110,11 @@ contract InsurancePool {
         emit Stake(userAddress, amount);
     }
 
-    // @function getUnlockedfor: get the balance that one user can unlock
+    // @function getUnlockedfor: get the balance that one user(LP) can unlock(maximum)
     // @param userAddress: user's address
     // @return _amount: the amount that the user can unlock
-    function getUnlockedfor(address userAddress) public returns(uint256 _amount) {
-        uint256 user_balance = userInfo[userAddress];
+    function getUnlockedfor(address userAddress) public returns(uint256) {
+        uint256 user_balance = userInfo[userAddress].assetBalance;
         return (1 - lockedRatio) * user_balance;
     }
 
@@ -108,7 +123,7 @@ contract InsurancePool {
     // @param amount: the amount that the user want to unstake
     function unstake(address userAddress, uint256 amount) public {
         require(amount < getUnlockedfor(userAddress),
-                "not enough balance to be unlocked, please wait");
+                "not enough balance to be unlocked");
         _withdraw(userAddress, amount);
         emit Unstake(userAddress, amount);
     }
@@ -129,6 +144,14 @@ contract InsurancePool {
         currentStakingBalance -= balance;
         userInfo[userAddress] -= balance;
         lockedRatio = lockedBalance / currentStakingBalance;
+    }
+
+
+    function updateWhenExpire(uint256 _premium, uint256 _payoff) public {
+        activePremiums -= _premium;
+        lockedBalance -= _payoff;
+        availableCapacity += _payoff;
+        rewardCollected += _premium;
     }
 
     function payClaim() {
