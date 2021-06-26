@@ -47,7 +47,11 @@ contract InsurancePool {
         uint256 degisPerBlock;
     }
 
-    Queue UnstakeRequest[] requestList;
+    struct unstakeRequest {
+        uint256 pendingAmount;
+        uint256 fulfilledAmount;
+        bool isPaidOut;
+    }
 
     event Stake(address indexed userAddress, uint256 amount);
     event Unstake(address indexed userAddress, uint256 amount);
@@ -154,11 +158,12 @@ contract InsurancePool {
         rewardCollected += _premium;
     }
 
-    function payClaim() {
-
+    function payClaim(uint256 _payoff) public {
+        availableCapacity -= _payoff;
     }
 
-    function recievePremium() {
-
+    function recievePremium(uint256 _premium) public {
+        activePremiums += _premium;
+        
     }
 }

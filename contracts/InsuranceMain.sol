@@ -9,6 +9,8 @@ contract InsuranceMain {
     struct PolicyInfo {
         uint256 payoff;
         uint256 expiryTime;
+        fixed probability;
+        address holder;
     }
 
     InsurancePool pool_contract;
@@ -18,7 +20,7 @@ contract InsuranceMain {
     mapping(address => mapping(uint256 => PolicyInfo)) userPolicyInfo;
     mapping(address => uint256) userPolicyIndex;
 
-    constructor(_pool_addr) {
+    constructor(address _pool_addr) {
         owner = msg.sender;
         pool_contract = InsurancePool(_pool_addr);
     }
@@ -43,5 +45,14 @@ contract InsuranceMain {
     function _buildInsurance() internal returns(PolicyInfo policy){
         policy = PolicyInfo(1, 2);
         return policy;
+    }
+
+
+    function expire() public returns() {
+
+    }
+
+    function claimPolicy() public returns() {
+
     }
 }
