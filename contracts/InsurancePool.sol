@@ -10,6 +10,7 @@ import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 
 contract InsurancePool {
     using FixedPoint for *;
+
     // the onwer address of this contract
     address public owner;
 
@@ -19,8 +20,8 @@ contract InsurancePool {
         uint256 assetBalance; // the amount of a user's staking in the pool
         uint256 freeBalance; // the unlocked amount of a user's staking
     }
-
     mapping(address => UserInfo) userInfo;
+
     DegisToken public immutable DEGIS; // the contract instance of degis token
 
     IERC20 public USDC_TOKEN;
@@ -41,6 +42,7 @@ contract InsurancePool {
     uint256 rewardCollected;
     // collateral factor = asset / max risk exposure, initially need to be >100%
     fixed public collateralFactor;
+
     // poolInfo: the information about this pool
     struct poolInfo {
         string poolName;
@@ -56,11 +58,15 @@ contract InsurancePool {
     struct UnstakeRequest {
         uint256 pendingAmount;
         uint256 fulfilledAmount;
-        bool isPaidOut;
+        bool isPaidOut; // if this request has been paid out
     }
 
     mapping(address => UnstakeRequest[]) private unstakeRequests;
+
+    // list of all unstake users
     address[] private unstakeUsers;
+
+    // current pointer of the unstake request queue
     uint256 private unstakePointer;
 
     /**
@@ -78,31 +84,42 @@ contract InsurancePool {
     event Unstake(address indexed userAddress, uint256 amount);
     event ChangeCollateralFactor(address indexed onwerAddress, uint256 factor);
 
-    // @constructor
+    /**
+     * @notice constructor function
+     * @param _factor: initial collateral factor
+     * @param _degis: address of the degis token
+     * @param _usdcAddress: address of USDC
+     */
     constructor(
-        uint256 factor,
+        uint256 _factor,
         DegisToken _degis,
         address _usdcAddress
     ) {
         owner = msg.sender;
-        collateralFactor = factor;
+        collateralFactor = _factor;
         lockedRatio = 0;
         DEGIS = _degis;
         USDC_TOKEN = IERC20(_usdcAddress);
     }
 
-    // @modifier onlyOwner: only the owner can call some functions
+    /**
+     * @notice only the owner can call some functions
+     */
     modifier onlyOwner() {
         require(owner == msg.sender, "only the owner can call this function");
         _;
     }
 
-    // @fucntion getTotalLocked: view how many assets are locked currently
+    /**
+     * @notice view how many assets are locked in the pool currently
+     */
     function getTotalLocked() public view returns (uint256) {
         return lockedBalance;
     }
 
-    // @function getAvailableCapacity: view the pool's available capacity
+    /**
+     * @notice view the pool's total available capacity
+     */
     function getAvailableCapacity() public view returns (uint256) {
         return availableCapacity;
     }
