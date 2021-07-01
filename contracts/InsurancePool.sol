@@ -36,7 +36,7 @@ contract InsurancePool {
     fixed lockedRatio;
     // available capacity is the current available asset balance
     uint256 availableCapacity;
-    // active premiums = premiums have been paid but the policies haven't expired
+    // premiums have been paid but the policies haven't expired
     uint256 activePremiums;
     // rewardCollected is total income from premium
     uint256 rewardCollected;
