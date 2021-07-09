@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-import "./InsuranceMain.sol"; //不对--=-=-
+//import "./InsuranceMain.sol"; //不对--=-=-
 //import "./interfaces/IERC20.sol";
 import "./DegisToken.sol";
 import "./libraries/Queue.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 //import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -33,7 +34,7 @@ contract InsurancePool {
     // locked balance is for potiential payoff
     uint256 lockedBalance;
     // locked relation = locked balance / currentStakingBalance
-    fixed lockedRatio;
+    FixedPoint.uq112x112 lockedRatio;
     // available capacity is the current available asset balance
     uint256 availableCapacity;
     // premiums have been paid but the policies haven't expired
@@ -41,7 +42,7 @@ contract InsurancePool {
     // rewardCollected is total income from premium
     uint256 rewardCollected;
     // collateral factor = asset / max risk exposure, initially need to be >100%
-    fixed public collateralFactor;
+    FixedPoint.uq112x112 public collateralFactor;
 
     // poolInfo: the information about this pool
     struct poolInfo {
@@ -96,8 +97,8 @@ contract InsurancePool {
         address _usdcAddress
     ) {
         owner = msg.sender;
-        collateralFactor = _factor;
-        lockedRatio = 0;
+        collateralFactor = calcFactor(_factor, 100);
+        lockedRatio = calcFactor(0, 1);
         DEGIS = _degis;
         USDC_TOKEN = IERC20(_usdcAddress);
     }
@@ -108,6 +109,18 @@ contract InsurancePool {
     modifier onlyOwner() {
         require(owner == msg.sender, "only the owner can call this function");
         _;
+    }
+
+    /**
+     * @notice calculate the fixed point form of collateral factor
+     * @param _numerator: the factor input
+     * @param _denominator: 100, the divider
+     */
+    function calcFactor(uint256 _numerator, uint256 _denominator)
+        public
+        returns (FixedPoint.uq112x112 memory)
+    {
+        return FixedPoint.fraction(_numerator, _denominator);
     }
 
     /**
@@ -147,7 +160,8 @@ contract InsurancePool {
         returns (uint256)
     {
         uint256 user_balance = userInfo[_userAddress].assetBalance;
-        return (1 - lockedRatio) * user_balance;
+
+        return ((1 - lockedRatio) * user_balance).decode144();
     }
 
     /**
@@ -211,7 +225,7 @@ contract InsurancePool {
      */
     function unstake(address _userAddress, uint256 _amount) public {
         require(
-            _amount < userInfo[userAddress].assetBalance,
+            _amount < userInfo[_userAddress].assetBalance,
             "not enough balance to be unlocked"
         );
 
@@ -236,10 +250,10 @@ contract InsurancePool {
      * @param _userAddress: address of the user who deposits
      * @param _amount: the amount he deposits
      */
-    function _deposit(address userAddress, uint256 _amount) internal {
+    function _deposit(address _userAddress, uint256 _amount) internal {
         currentStakingBalance += _amount;
         realStakingBalance += _amount;
-        userInfo[userAddress].assetBalance += _amount;
+        userInfo[_userAddress].assetBalance += _amount;
         lockedRatio = lockedBalance / currentStakingBalance;
     }
 
