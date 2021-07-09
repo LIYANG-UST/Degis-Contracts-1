@@ -21,8 +21,15 @@
 const HDWalletProvider = require('@truffle/hdwallet-provider');
 const infuraKey = "99270a88eaea4249836c9f9b90aca558";
 //
-const fs = require('fs');
-const mnemonic = fs.readFileSync(".secret").toString().trim();
+// const fs = require('fs');
+// const mnemonic = fs.readFileSync(".secret").toString().trim();
+const dotenv = require('dotenv')
+const result = dotenv.config();
+if (result.error) {
+  throw result.error;
+}
+console.log(result.parsed);
+var mnemonic_ropsten = process.env.mnemonic_ropsten;
 
 module.exports = {
   /**
@@ -59,7 +66,7 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     ropsten: {
-      provider: () => new HDWalletProvider(mnemonic, `https://ropsten.infura.io/v3/99270a88eaea4249836c9f9b90aca558`),
+      provider: () => new HDWalletProvider(mnemonic_ropsten, 'https://ropsten.infura.io/v3/' + infuraKey),
       network_id: 3,       // Ropsten's id
       gas: 5500000,        // Ropsten has a lower block limit than mainnet
       confirmations: 2,    // # of confs to wait between deployments. (default: 0)
