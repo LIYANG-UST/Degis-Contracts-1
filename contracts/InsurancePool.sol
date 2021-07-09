@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-//import "./InsuranceMain.sol"; //不对--=-=-
-//import "./interfaces/IERC20.sol";
+
 import "./DegisToken.sol";
 import "./libraries/Queue.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
@@ -160,8 +159,10 @@ contract InsurancePool {
         returns (uint256)
     {
         uint256 user_balance = userInfo[_userAddress].assetBalance;
-
-        return ((1 - lockedRatio) * user_balance).decode144();
+        uint256 _locked_user_balance = lockedRatio
+        .mul(user_balance)
+        .decode144();
+        return user_balance - _locked_user_balance;
     }
 
     /**
@@ -171,7 +172,7 @@ contract InsurancePool {
      */
     function getLockedfor(address _userAddress) public view returns (uint256) {
         uint256 user_balance = userInfo[_userAddress].assetBalance;
-        return (lockedRatio * user_balance);
+        return lockedRatio.mul(user_balance).decode144();
     }
 
     /**
@@ -179,7 +180,7 @@ contract InsurancePool {
      * @param _factor: the new collateral factor
      */
     function setCollateralFactor(uint256 _factor) public onlyOwner {
-        collateralFactor = _factor;
+        collateralFactor = FixedPoint.uq112x112(uint224(_factor));
         emit ChangeCollateralFactor(owner, _factor);
     }
 
@@ -207,7 +208,9 @@ contract InsurancePool {
         lockedBalance += _payoff;
         activePremiums += _premium;
         availableCapacity -= _payoff;
-        lockedRatio = lockedBalance / currentStakingBalance;
+        lockedRatio = FixedPoint.uq112x112(
+            uint224(lockedBalance / currentStakingBalance)
+        );
     }
 
     // @function stake: a user(LP) want to stake some amount of asset
