@@ -4,6 +4,7 @@
 
 
 #mintpart,
+#minttest,
 #policypart,
 #userpart {
     width: 800px;
@@ -13,3 +14,4 @@
 #mint_number {
     margin: 0 auto;
 }
+
