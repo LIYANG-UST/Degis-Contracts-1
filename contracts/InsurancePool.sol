@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./DegisToken.sol";
-import "./libraries/Queue.sol";
+import "./libraries/Policy.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
@@ -13,6 +13,7 @@ contract InsurancePool {
 
     // the onwer address of this contract
     address public owner;
+    address public policyFlow;
 
     // UserInfo.rewardDebt: the pending reward(degis token)
     struct UserInfo {
@@ -28,18 +29,25 @@ contract InsurancePool {
 
     // current total staking balance of the pool
     uint256 currentStakingBalance;
+
     // real staking balance = current staking balance - sum(unstake request)
     uint256 realStakingBalance;
+
     // locked balance is for potiential payoff
     uint256 lockedBalance;
+
     // locked relation = locked balance / currentStakingBalance
     FixedPoint.uq112x112 lockedRatio;
+
     // available capacity is the current available asset balance
     uint256 availableCapacity;
+
     // premiums have been paid but the policies haven't expired
     uint256 activePremiums;
+
     // rewardCollected is total income from premium
     uint256 rewardCollected;
+
     // collateral factor = asset / max risk exposure, initially need to be >100%
     FixedPoint.uq112x112 public collateralFactor;
 
@@ -79,10 +87,12 @@ contract InsurancePool {
     }
 
     Premium[] private premiums;
+    Policy[] private policyList;
 
     event Stake(address indexed userAddress, uint256 amount);
     event Unstake(address indexed userAddress, uint256 amount);
     event ChangeCollateralFactor(address indexed onwerAddress, uint256 factor);
+    event BuyNewPolicy(address userAddress, uint256 premium, uint256 payout);
 
     /**
      * @notice constructor function
@@ -93,20 +103,32 @@ contract InsurancePool {
     constructor(
         uint256 _factor,
         DegisToken _degis,
-        address _usdcAddress
+        address _usdcAddress,
+        address _policyFlowAddress
     ) {
         owner = msg.sender;
         collateralFactor = calcFactor(_factor, 100);
         lockedRatio = calcFactor(0, 1);
         DEGIS = _degis;
         USDC_TOKEN = IERC20(_usdcAddress);
+        policyFlow = _policyFlowAddress;
     }
 
     /**
      * @notice only the owner can call some functions
      */
     modifier onlyOwner() {
-        require(owner == msg.sender, "only the owner can call this function");
+        require(msg.sender == owner, "only the owner can call this function");
+        _;
+    }
+    /**
+     * @notice only the policyFlow contract can call some functions
+     */
+    modifier onlyPolicyFlow() {
+        require(
+            msg.sender == policyFlow,
+            "only called by the policy flow contract"
+        );
         _;
     }
 
@@ -249,7 +271,7 @@ contract InsurancePool {
     }
 
     /**
-     * @notice: finish the deposit action
+     * @notice finish the deposit process
      * @param _userAddress: address of the user who deposits
      * @param _amount: the amount he deposits
      */
@@ -257,7 +279,11 @@ contract InsurancePool {
         currentStakingBalance += _amount;
         realStakingBalance += _amount;
         userInfo[_userAddress].assetBalance += _amount;
-        lockedRatio = lockedBalance / currentStakingBalance;
+        lockedRatio = FixedPoint.uq112x112(
+            uint224(lockedBalance / currentStakingBalance)
+        );
+        USDC_TOKEN.transferFrom(address(this), _userAddress, _amount);
+        emit Stake(_userAddress, _amount);
     }
 
     /**
@@ -270,14 +296,24 @@ contract InsurancePool {
         realStakingBalance -= _amount;
         userInfo[_userAddress].assetBalance -= _amount;
         userInfo[_userAddress].freeBalance -= _amount;
-        lockedRatio = lockedBalance / currentStakingBalance;
+        lockedRatio = FixedPoint.uq112x112(
+            uint224(lockedBalance / currentStakingBalance)
+        );
         //加入给用户转账的代码
         // 使用其他ERC20 代币 usdc/dai
         USDC_TOKEN.transferFrom(address(this), _userAddress, _amount);
         emit Unstake(_userAddress, _amount);
     }
 
-    function updateWhenExpire(uint256 _premium, uint256 _payoff) public {
+    /**
+     * @notice update the status when a policy expires
+     * @param _premium: the policy's premium
+     * @param _payoff: the policy's payoff
+     */
+    function updateWhenExpire(uint256 _premium, uint256 _payoff)
+        public
+        onlyPolicyFlow
+    {
         activePremiums -= _premium;
         lockedBalance -= _payoff;
         availableCapacity += _payoff;
