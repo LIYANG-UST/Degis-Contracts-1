@@ -10,7 +10,7 @@ contract DegisToken is ERC20 {
     /**
      * @notice use ERC20 constructor and set the owner
      */
-    constructor() payable ERC20("Degis", "DEG") {
+    constructor() payable ERC20("DegisToken", "DEGIS") {
         minter = msg.sender;
     }
 

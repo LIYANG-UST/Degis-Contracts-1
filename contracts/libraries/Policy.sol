@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 contract Policy {
-    struct policy {
+    struct policyInfo {
         uint256 productId;
         address buyerAddress;
         bytes32 policyId;
@@ -14,7 +14,7 @@ contract Policy {
 
     constructor() {}
 
-    function getPolicyProductId(policy calldata _policy)
+    function getPolicyProductId(policyInfo calldata _policy)
         public
         pure
         returns (uint256)
@@ -22,7 +22,7 @@ contract Policy {
         return _policy.productId;
     }
 
-    function getPolicyBuyer(policy calldata _policy)
+    function getPolicyBuyer(policyInfo calldata _policy)
         public
         pure
         returns (address)
@@ -30,7 +30,7 @@ contract Policy {
         return _policy.buyerAddress;
     }
 
-    function getPolicyId(policy calldata _policy)
+    function getPolicyId(policyInfo calldata _policy)
         public
         pure
         returns (bytes32)
@@ -38,7 +38,7 @@ contract Policy {
         return _policy.policyId;
     }
 
-    function getPolicyExpiryDate(policy calldata _policy)
+    function getPolicyExpiryDate(policyInfo calldata _policy)
         public
         pure
         returns (uint256)
