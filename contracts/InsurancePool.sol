@@ -226,6 +226,7 @@ contract InsurancePool {
     function updateWhenBuy(uint256 _premium, uint256 _payoff)
         external
         checkWhenBuy(_payoff)
+        returns (bool)
     {
         lockedBalance += _payoff;
         activePremiums += _premium;
