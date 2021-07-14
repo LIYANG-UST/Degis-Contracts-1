@@ -10,17 +10,17 @@ contract DegisToken is ERC20 {
     /**
      * @notice use ERC20 constructor and set the owner
      */
-    constructor() payable ERC20("Degis", "DEG") {
+    constructor() payable ERC20("DegisToken", "DEGIS") {
         minter = msg.sender;
     }
 
     /**
      * @notice Only for frontend test
      */
-    function AddTen(uint256 _testNum) public view returns (uint256) {
+    function AddTen(uint256 _testNum) public pure returns (uint256) {
         return _testNum + 10;
     }
-    
+
     /**
      * @notice get the balance that one user(LP) can unlock(maximum)
      * @param _newMinter: new minter's address

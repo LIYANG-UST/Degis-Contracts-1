@@ -29,7 +29,7 @@ if (result.error) {
   throw result.error;
 }
 console.log(result.parsed);
-var mnemonic = process.env.mnemonic_ropsten;
+var mnemonic = process.env.mnemonic;
 var infuraKey = process.env.infuraKey;
 
 module.exports = {
