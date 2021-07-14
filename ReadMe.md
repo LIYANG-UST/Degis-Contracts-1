@@ -2,17 +2,17 @@
 
 Codes of degis contracts and a toy model for online test.
 
-## dependencies
+## Dependencies
 ```
 npm install -g truffle
 ```
 
-## preparation
+## Preparation
 ```
 npm install
 ```
 
-## structure
+## Structure
 - contracts/: smart contracts files
 - src/: frontend files
 - test/: test files (have not begun)
