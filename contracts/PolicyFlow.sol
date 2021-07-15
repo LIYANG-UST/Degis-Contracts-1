@@ -32,6 +32,14 @@ contract PolicyFlow {
         oracleAddress = _oracleAddress;
     }
 
+    /**
+     * @notice start a new policy application
+     * @param _userAddress: user's address
+     * @param _productId: ID of the purchased product
+     * @param _premium: premium of this policy
+     * @param _payoff: payoff of this policy
+     * @param _expiryDate: expiry date of this policy
+     */
     function newApplication(
         address _userAddress,
         uint256 _productId,
@@ -55,6 +63,10 @@ contract PolicyFlow {
         return TEMP_policyId;
     }
 
+    /**
+     * @notice check the policy and then determine whether we can afford it
+     * @param _policyInfo: the info of the policy sold
+     */
     function policyCheck(policyInfo memory _policyInfo) public {
         bool _isAccepted = insurancePool.updateWhenBuy(
             _policyInfo.premium,
@@ -67,10 +79,18 @@ contract PolicyFlow {
         }
     }
 
+    /**
+     * @notice update the policy when it is expired
+     * @param _policyInfo: the info of the policy sold
+     */
     function policyExpired(policyInfo memory _policyInfo) public {
         emit PolicyExpired(_policyInfo.policyId, _policyInfo.buyerAddress);
     }
 
+    /**
+     * @notice update the policy when it is claimed
+     * @param _policyInfo: the info of the policy sold
+     */
     function policyClaimed(policyInfo memory _policyInfo) public {
         emit PolicyClaimed(_policyInfo.policyId, _policyInfo.buyerAddress);
     }
