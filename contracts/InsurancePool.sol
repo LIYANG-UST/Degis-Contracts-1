@@ -6,10 +6,13 @@ import "./libraries/Policy.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
+// import "./libraries/FixedMath.sol";
+
 //import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract InsurancePool {
     using FixedPoint for *;
+    using SafeMath for *;
 
     // the onwer address of this contract
     address public owner;
@@ -103,15 +106,13 @@ contract InsurancePool {
     constructor(
         uint256 _factor,
         DegisToken _degis,
-        address _usdcAddress,
-        address _policyFlowAddress
+        address _usdcAddress
     ) {
         owner = msg.sender;
         collateralFactor = calcFactor(_factor, 100);
         lockedRatio = calcFactor(0, 1);
         DEGIS = _degis;
         USDC_TOKEN = IERC20(_usdcAddress);
-        policyFlow = _policyFlowAddress;
     }
 
     /**
@@ -132,6 +133,14 @@ contract InsurancePool {
         _;
     }
 
+    /**
+     * @notice set the address of policyFlow
+     */
+    function setPolicyFlow(address _policyFlowAddress) public onlyOwner {
+        policyFlow = _policyFlowAddress;
+    }
+
+    //calcFactor function is moved to library/FixedMath.sol
     /**
      * @notice calculate the fixed point form of collateral factor
      * @param _numerator: the factor input
@@ -226,6 +235,7 @@ contract InsurancePool {
     function updateWhenBuy(uint256 _premium, uint256 _payoff)
         external
         checkWhenBuy(_payoff)
+        returns (bool)
     {
         lockedBalance += _payoff;
         activePremiums += _premium;
@@ -233,6 +243,8 @@ contract InsurancePool {
         lockedRatio = FixedPoint.uq112x112(
             uint224(lockedBalance / currentStakingBalance)
         );
+
+        return true;
     }
 
     // @function stake: a user(LP) want to stake some amount of asset

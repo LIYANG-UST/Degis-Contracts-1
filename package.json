@@ -5,9 +5,10 @@
   "author": "liyang",
   "homepage": "http://.",
   "dependencies": {
+    "@chainlink/contracts": "^0.2.1",
     "@openzeppelin/contracts": "4.1.0",
     "@truffle/hdwallet-provider": "^1.4.0",
-    "@uniswap/lib": "^4.0.1-alpha",
+    "@uniswap/lib": "^5.0.0-alpha",
     "dotenv": "^10.0.0",
     "web3": "1.3.4"
   },
@@ -19,6 +20,7 @@
     "test": "test"
   },
   "devDependencies": {
+    "@chainlink/test-helpers": "0.0.7-alpha",
     "lite-server": "^2.6.1"
   }
 }
