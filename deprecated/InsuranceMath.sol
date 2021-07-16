@@ -15,8 +15,6 @@ contract InsuranceMath {
     }
 
     function calcPremium() public returns (uint256) {
-        fixed probability = 1;
-        uint256 premium = uint256(probability);
-        return premium;
+        return 1;
     }
 }

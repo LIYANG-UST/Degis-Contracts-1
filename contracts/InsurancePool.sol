@@ -106,15 +106,13 @@ contract InsurancePool {
     constructor(
         uint256 _factor,
         DegisToken _degis,
-        address _usdcAddress,
-        address _policyFlowAddress
+        address _usdcAddress
     ) {
         owner = msg.sender;
-        collateralFactor = FixedMath.calcFactor(_factor, 100);
-        lockedRatio = FixedMath.calcFactor(0, 1);
+        collateralFactor = calcFactor(_factor, 100);
+        lockedRatio = calcFactor(0, 1);
         DEGIS = _degis;
         USDC_TOKEN = IERC20(_usdcAddress);
-        policyFlow = _policyFlowAddress;
     }
 
     /**
@@ -133,6 +131,13 @@ contract InsurancePool {
             "only called by the policy flow contract"
         );
         _;
+    }
+
+    /**
+     * @notice set the address of policyFlow
+     */
+    function setPolicyFlow(address _policyFlowAddress) public onlyOwner {
+        policyFlow = _policyFlowAddress;
     }
 
     //calcFactor function is moved to library/FixedMath.sol

@@ -14,6 +14,10 @@ contract DegisBar is ERC20("DegisBar", "xDEGIS") {
         DegisToken = _degisAddress;
     }
 
+    /**
+     * @notice users deposit Degis Token to enter the pool
+     * @param _amount: the amount of Degis Token deposited
+     */
     function enter(uint256 _amount) public {
         uint256 totalDegis = DegisToken.balanceOf(address(this));
 
@@ -29,6 +33,10 @@ contract DegisBar is ERC20("DegisBar", "xDEGIS") {
         DegisToken.transferFrom(msg.sender, address(this), _amount);
     }
 
+    /**
+     * @notice users deposit Degis Token to enter the pool
+     * @param _share: the user's share
+     */
     function leave(uint256 _share) public {
         // Gets the amount of xSushi in existence
         uint256 totalShares = totalSupply();
