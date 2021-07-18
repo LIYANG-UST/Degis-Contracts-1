@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./DegisToken.sol";
-import "./libraries/Policy.sol";
+// import "./libraries/Policy.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
@@ -55,13 +55,15 @@ contract InsurancePool {
     FixedPoint.uq112x112 public collateralFactor;
 
     // poolInfo: the information about this pool
-    struct poolInfo {
+    struct PoolInfo {
         string poolName;
         uint256 poolId;
         uint256 degisPerShare;
         uint256 lastRewardBlock;
         uint256 degisPerBlock;
     }
+
+    PoolInfo poolInfo;
 
     /**
      * @notice status of every unstake request
@@ -90,7 +92,7 @@ contract InsurancePool {
     }
 
     Premium[] private premiums;
-    Policy[] private policyList;
+    // Policy[] private policyList;
 
     event Stake(address indexed userAddress, uint256 amount);
     event Unstake(address indexed userAddress, uint256 amount);
@@ -106,13 +108,21 @@ contract InsurancePool {
     constructor(
         uint256 _factor,
         DegisToken _degis,
-        address _usdcAddress
+        address _usdcAddress,
+        uint256 _degisPerBlock
     ) {
         owner = msg.sender;
         collateralFactor = calcFactor(_factor, 100);
         lockedRatio = calcFactor(0, 1);
         DEGIS = _degis;
         USDC_TOKEN = IERC20(_usdcAddress);
+        poolInfo = PoolInfo(
+            "insurancepool",
+            0,
+            0,
+            block.timestamp,
+            _degisPerBlock
+        );
     }
 
     /**
@@ -148,6 +158,7 @@ contract InsurancePool {
      */
     function calcFactor(uint256 _numerator, uint256 _denominator)
         public
+        pure
         returns (FixedPoint.uq112x112 memory)
     {
         return FixedPoint.fraction(_numerator, _denominator);
@@ -158,6 +169,26 @@ contract InsurancePool {
      */
     function getTotalLocked() public view returns (uint256) {
         return lockedBalance;
+    }
+
+    /**
+     * @notice view the pool info (only for test, delete when mainnet)
+     */
+    function getPoolInfo() public view returns (string memory) {
+        string memory name = poolInfo.poolName;
+        return name;
+    }
+
+    // View function to see pending SUSHIs on frontend.
+    function pendingDegis(address _userAddress)
+        external
+        view
+        returns (uint256)
+    {
+        UserInfo storage user = userInfo[_userAddress];
+        uint256 accDegisPerShare = poolInfo.degisPerShare;
+
+        return user.rewardDebt;
     }
 
     /**
@@ -232,11 +263,11 @@ contract InsurancePool {
      * @param _premium: the premium of the policy just sold
      * @param _payoff: the payoff of the policy just sold
      */
-    function updateWhenBuy(uint256 _premium, uint256 _payoff)
-        external
-        checkWhenBuy(_payoff)
-        returns (bool)
-    {
+    function updateWhenBuy(
+        uint256 _premium,
+        uint256 _payoff,
+        address _userAddress
+    ) external checkWhenBuy(_payoff) returns (bool) {
         lockedBalance += _payoff;
         activePremiums += _premium;
         availableCapacity -= _payoff;
@@ -244,6 +275,7 @@ contract InsurancePool {
             uint224(lockedBalance / currentStakingBalance)
         );
 
+        emit BuyNewPolicy(_userAddress, _premium, _payoff);
         return true;
     }
 
@@ -273,7 +305,7 @@ contract InsurancePool {
             uint256 remainingURequest = _amount - unlocked;
 
             unstakeRequests[_userAddress].push(
-                UnstakeRequest(_amount, 0, false)
+                UnstakeRequest(remainingURequest, 0, false)
             );
             unstakeUsers.push(_userAddress);
             unstakeAmount = unlocked;
@@ -294,7 +326,7 @@ contract InsurancePool {
         lockedRatio = FixedPoint.uq112x112(
             uint224(lockedBalance / currentStakingBalance)
         );
-        USDC_TOKEN.transferFrom(address(this), _userAddress, _amount);
+        USDC_TOKEN.transferFrom(_userAddress, address(this), _amount);
         emit Stake(_userAddress, _amount);
     }
 
@@ -333,7 +365,7 @@ contract InsurancePool {
     }
 
     function payClaim(uint256 _payoff) public {
-        availableCapacity -= _payoff;
+        lockedBalance -= _payoff;
     }
 
     function recievePremium(uint256 _premium) public {
