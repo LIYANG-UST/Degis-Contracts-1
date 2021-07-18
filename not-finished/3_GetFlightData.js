@@ -10,7 +10,7 @@ module.exports = async (deployer, network, [defaultAccount]) => {
     GetFlightData.setProvider(deployer.provider)
     if (network.startsWith('rinkeby')) {
         await deployer.deploy(GetFlightData, RINKEBY_VRF_COORDINATOR, RINKEBY_LINKTOKEN, RINKEBY_KEYHASH)
-        let dnd = await GetFlightData.deployed()
+        // let dnd = await GetFlightData.deployed()
     } else if (network.startsWith('mainnet')) {
         console.log("If you're interested in early access to Chainlink VRF on mainnet, please email vrf@chain.link")
     } else {

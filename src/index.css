@@ -6,9 +6,13 @@
 #mintpart,
 #minttest,
 #policypart,
-#userpart {
-    width: 800px;
+#userpart,
+#lppart,
+#poolpart,
+#stakepart {
+    width: 1000px;
     margin: 0 auto;
+    padding: 40px;
 }
 
 #mint_number {

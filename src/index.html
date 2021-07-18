@@ -6,123 +6,138 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A Naive Test Page for Degis Insurance</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="./index.css">
-    <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
+
     <link href="https://fonts.googleapis.com/css2?family=Nunito&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap" rel="stylesheet">
 </head>
 
 <body>
-    <div class="min-h-full flex flex-col items-center">
-        <img class="mx-auto mt-8 sm:mt-10 w-10 sm:w-12 h-10 sm:h-12" src="img/verified.png" />
-        <h1
-            class="max-w-lg mt-8 mx-6 text-gray-900 text-2xl sm:text-3xl text-center font-semibold leading-snug tracking-wider">
-            Degis is an <span class="text-indigo-600">ecosystem</span> for <span class="text-indigo-600">decentralized
-                insurance</span>
-        </h1>
-    </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 sm:mx-8 mt-12 md:mt-16 gap-8" id="minttest">
-        <div class="flex flex-col max-w-xs p-6 sm:p-8 pb-8 sm:pb-10 bg-white rounded-md text-center">
-            <h3 class="text-gray-900 text-md sm:text-lg font-semibold tracking-wider">
-                Mint Test
-            </h3>
-            <input class="mx-auto block mt-6 sm:mt-8 px-5 sm:px-6 py-3 sm:py-4 rounded-sm bg-gray-100
-                 mono border-4 text-sm sm:text-md text-blue-500 font-semibold tracking-wide" id="mintnum">
-            输入数量
-            </input>
-            <input class="mx-auto block mt-6 sm:mt-8 px-5 sm:px-6 py-3 sm:py-4 rounded-sm bg-gray-100
-                 mono border-4 text-sm sm:text-md text-blue-500 font-semibold tracking-wide" id="mintnum">
-            输入地址
-            </input>
-            <a href="https://alpha.charm.fi">
-                <button
-                    class="mx-auto block mt-6 sm:mt-8 px-5 sm:px-6 py-3 sm:py-4 rounded-sm bg-indigo-600 hover:bg-indigo-500 mono text-sm sm:text-md text-white font-semibold tracking-wide">
-                    Mint Tokens
-                </button>
-            </a>
-        </div>
-    </div>
+    <img class="rounded mx-auto d-block" src="img/verified.png" alt="" style="width:100px" />
 
-
+    <h1 style="text-align: center">
+        Degis is an ecosystem for decentralized insurance
+    </h1>
+    <br>
 
 
     <div id="content">
+        <div class="border" id="mintpart">
+            <form>
+                <h2 class="mx-auto">Mint Part</h2>
+                <div class="form-group">
+                    <label for="mint_number">输入铸造Degis数量</label>
+                    <input class="form-control" type="text" id="mint_number">
+                    <small id="mint_number_help" class="form-text text-muted">decimals:18</small>
+                </div>
+                <div class="form-group">
+                    <label for="minter">输入你的地址</label>
+                    <input class="form-control" type="text" id="minter">
+                    <small id="minter_help" class="form-text text-muted">eth address</small>
+                    <br />
+                </div>
+                <button type="button" class="btn btn-primary btn-mint">press to mint</button>
+            </form>
+        </div>
 
-        <div id="mintpart">
-            <h2 class="mx-auto text-gray-600 text-xl">Mint Part</h2>
-            <br>
-            <div>
-                <div class="row">
-                    <div class="col-md-12 col-sm-12">
-                        <label for="mint_number">输入铸造Degis数量</label>
-                        <input class="w-100 h-10 border-4" type="text" id="mint_number">
-                        <br />
-                    </div>
+        <div class="border" id="stakepart">
+            <form>
+                <h2 class="mx-auto">Stake Part</h2>
+                <div class="form-group">
+                    <label for="stake_number">输入质押的USDC数量</label>
+                    <input class="form-control" type="text" id="stake_number">
+                    <small id="stake_number_help" class="form-text text-muted">decimals:18</small>
                 </div>
-                <br>
-                <div class="row">
-                    <div class="col-md-12 col-sm-12">
-                        <label for="minter">输入你的地址</label>
-                        <input class="w-100 h-10 border-4" type="text" id="minter">
-                        <br />
-                    </div>
-                </div>
+                <button type="button" class="btn btn-primary btn-stake">press to stake</button>
+            </form>
+        </div>
 
-                <button
-                    class="ml-2 mb-10 block sm:mt-8 px-5 sm:px-6 py-3 sm:py-4 rounded-sm bg-indigo-800 hover:bg-indigo-500 mono text-sm sm:text-md text-white font-semibold"
-                    id="mint">点击铸造</button>
-            </div>
-            <hr />
+        <div class="border" id="policypart">
+            <form>
+                <h2 class="mx-auto">Policy Part</h2>
+                <div class="form-group">
+                    <label for="userAddress">输入被保险人地址</label>
+                    <input class="form-control" type="text" id="userAddress">
+                    <small class="form-text text-muted">eth address for buyer</small>
+                </div>
+                <div class="form-group">
+                    <label for="productId">输入产品id,默认为1</label>
+                    <input class="form-control" type="text" id="productId" placeholder="1">
+                </div>
+                <div class="form-group">
+                    <label for="payoff">输入保额</label>
+                    <input class="form-control" type="text" id="payoff">
+                </div>
+                <div class="form-group">
+                    <label for="premium">保费</label>
+                    <input class="form-control" type="text" id="premium" placeholder="" readonly>
+                </div>
+                <button type="button" class="btn btn-primary">press to buy</button>
+            </form>
         </div>
-        <div class="container" id="policypart">
-            <h2 class="mt-10 mx-auto text-gray-600 text-xl">Policy Part</h2>
-            <br>
-            <div class="row">
-                <div class="col-md-12 col-sm-12">
-                    <label for="flight_number">输入航班号</label>
-                    <input class="w-100 h-10 border-4" type="text" id="flight_number">
-                    <br />
+
+
+        <div class="border" id="userpart">
+            <button type="button" class="btn btn-primary">Show my policies</button>
+            <div class="alert alert-light" role="alert">
+                User's policies:
+            </div>
+            <div class="card" style="width: 18rem;">
+                <div class="card-body">
+                    <h5 class="card-title">Policy1</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
+                    <p class="card-text">Some quick example text to build on the card title and make up the bulk of the
+                        card's content.</p>
+                    <a href="#" class="card-link">Card link</a>
+                    <a href="#" class="card-link">Another link</a>
                 </div>
             </div>
-            <br>
-            <div class="row">
-                <div class="col-md-12 col-sm-12">
-                    <label for="flight_day">输入日期</label>
-                    <input class="w-100 h-10 border-4" type="text" id="flight_day">
-                    <br />
+        </div>
+
+        <div class="border" id="poolpart">
+            <button type="button" class="btn btn-primary btn-getpoolinfo">Show the pool info</button>
+            <div class="card" style="width: 18rem;">
+                <div class="card-body">
+                    <h5 class="card-title">LP Token
+                    </h5>
+                    <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
+                    <p class="card-text">Some quick example text to build on the card title and make up the bulk of the
+                        card's content.</p>
+                    <a href="#" class="card-link">Card link</a>
+                    <a href="#" class="card-link">Another link</a>
                 </div>
             </div>
-            <br>
-            <div class="row">
-                <div class="col-md-12 col-sm-12">
-                    <label for="policy_number">输入数量</label>
-                    <input class="w-100 h-10 border-4" type="text" id="policy_number">
-                    <br />
+        </div>
+
+        <div class="border" id="lppart">
+            <button type="button" class="btn btn-primary">Show my liquidity</button>
+            <div class="alert alert-light" role="alert">
+                LP's asset:
+            </div>
+            <div class="card" style="width: 18rem;">
+                <div class="card-body">
+                    <h5 class="card-title">LP Token
+                    </h5>
+                    <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
+                    <p class="card-text">Some quick example text to build on the card title and make up the bulk of the
+                        card's content.</p>
+                    <a href="#" class="card-link">Card link</a>
+                    <a href="#" class="card-link">Another link</a>
                 </div>
             </div>
-            <br>
-            <button
-                class="ml-2 mb-10 block sm:mt-8 px-5 sm:px-6 py-3 sm:py-4 rounded-sm bg-indigo-800 hover:bg-indigo-500 mono text-sm sm:text-md text-white font-semibold"
-                id="buypolicy">购买保险</button>
-            <hr />
         </div>
-        <div class="container" id="userpart">
-            <div class="col-md-12 col-sm-12">
-                <button
-                    class="ml-2 mb-10 block sm:mt-8 px-5 sm:px-6 py-3 sm:py-4 rounded-sm bg-indigo-800 hover:bg-indigo-500 mono text-sm sm:text-md text-white font-semibold">show
-                    my polices</button>
-                <br />
-                <div class="border-4 w-full">User's Policies</div>
-            </div>
-        </div>
-        <script src="js/App.js"></script>
-        <script src="js/web3.min.js"></script>
-        <script src="js/truffle-contract.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
-            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
-            crossorigin="anonymous"></script>
+
     </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="js/web3.min.js"></script>
+    <script src="js/truffle-contract.js"></script>
+    <script src="js/App.js"></script>
+
 </body>
 
 </html>
