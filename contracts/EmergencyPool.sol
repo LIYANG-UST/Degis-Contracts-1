@@ -32,7 +32,7 @@ contract EmergencyPool is Ownable {
      * @param _amount: the amount he deposits
      */
     function _deposit(address _userAddress, uint256 _amount) internal {
-        USDC_TOKEN.transferFrom(address(this), _userAddress, _amount);
+        USDC_TOKEN.transferFrom(_userAddress, address(this), _amount);
     }
 
     /**
