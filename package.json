@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@chainlink/test-helpers": "0.0.7-alpha",
-    "lite-server": "^2.6.1"
+    "lite-server": "^2.6.1",
+    "truffle-plugin-verify": "^0.5.11"
   }
 }
