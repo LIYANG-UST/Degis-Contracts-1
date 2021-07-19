@@ -61,7 +61,7 @@ contract InsurancePool {
     struct PoolInfo {
         string poolName;
         uint256 poolId;
-        uint256 degisPerShare;
+        uint256 accDegisPerShare;
         uint256 lastRewardBlock;
         uint256 degisPerBlock;
     }
@@ -189,9 +189,20 @@ contract InsurancePool {
         returns (uint256)
     {
         UserInfo storage user = userInfo[_userAddress];
-        uint256 accDegisPerShare = poolInfo.degisPerShare;
+        uint256 accDegisPerShare = poolInfo.accDegisPerShare;
 
-        return user.rewardDebt;
+        if (block.number > poolInfo.lastRewardBlock) {
+            uint256 blocks = block.number - poolInfo.lastRewardBlock;
+            uint256 degisReward = blocks.mul(poolInfo.degisPerBlock);
+
+            accDegisPerShare = accDegisPerShare.add(degisReward).mul(1e12).div(
+                currentStakingBalance
+            );
+        }
+        return
+            user.assetBalance.mul(accDegisPerShare).div(1e12).sub(
+                user.rewardDebt
+            );
     }
 
     /**
@@ -282,12 +293,27 @@ contract InsurancePool {
         return true;
     }
 
-    // @function stake: a user(LP) want to stake some amount of asset
-    // @param userAddress: user's address
-    // @param amount: the amount that the user want to stake
-    function stake(address userAddress, uint256 amount) public {
-        _deposit(userAddress, amount);
-        emit Stake(userAddress, amount);
+    /**
+     * @notice stake: a user(LP) want to stake some amount of asset
+     * @param _userAddress: user's address
+     * @param _amount: the amount that the user want to stake
+     */
+    function stake(address _userAddress, uint256 _amount) public {
+        UserInfo storage user = userInfo[_userAddress];
+        if (user.assetBalance > 0) {
+            uint256 pending = user
+            .assetBalance
+            .mul(poolInfo.accDegisPerShare)
+            .div(1e12)
+            .sub(user.rewardDebt);
+            safeDegisTransfer(msg.sender, pending);
+        }
+        user.rewardDebt = user.assetBalance.mul(poolInfo.accDegisPerShare).div(
+            1e12
+        );
+
+        _deposit(_userAddress, _amount);
+        emit Stake(_userAddress, _amount);
     }
 
     /**
@@ -325,7 +351,9 @@ contract InsurancePool {
     function _deposit(address _userAddress, uint256 _amount) internal {
         currentStakingBalance += _amount;
         realStakingBalance += _amount;
+        availableCapacity += _amount;
         userInfo[_userAddress].assetBalance += _amount;
+        userInfo[_userAddress].freeBalance += _amount;
         lockedRatio = FixedPoint.uq112x112(
             uint224(lockedBalance / currentStakingBalance)
         );
@@ -443,5 +471,19 @@ contract InsurancePool {
         }
 
         unstakeQueue.pop();
+    }
+
+    /**
+     * @notice safe degis transfer (if the pool has enough DEGIS token)
+     * @param _to: user's address
+     * @param _amount: amount
+     */
+    function safeDegisTransfer(address _to, uint256 _amount) internal {
+        uint256 DegisBalance = DegisToken.balanceOf(address(this));
+        if (_amount > DegisBalance) {
+            DegisToken.transfer(_to, DegisBalance);
+        } else {
+            DegisToken.transfer(_to, _amount);
+        }
     }
 }

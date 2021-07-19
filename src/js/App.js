@@ -99,7 +99,9 @@ App = {
 
         App.contracts.InsurancePool.deployed().then(function (instance) {
             PoolInstance = instance;
-            PoolInstance.getPoolInfo({ from: App.account }).then(value => console.log(value));
+            PoolInstance.getPoolInfo({ from: App.account }).then(value => console.log("pool name:", value));
+            PoolInstance.getAvailableCapacity({ from: App.account }).then(value => console.log("available capacity", parseInt(value)));
+            PoolInstance.getStakeAmount(App.account, { from: App.account }).then(value => console.log("your stake amount:", parseInt(value) / 10 ** 18));
         }).catch(function (err) { //get方法执行失败打印错误
             console.log(err.message);
         });

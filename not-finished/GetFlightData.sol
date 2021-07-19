@@ -51,6 +51,7 @@ contract GetFlightData is VRFConsumerBase {
     function fulfillRandomness(bytes32 _requestId, uint256 _randomness)
         internal
         override
+        returns (uint256)
     {
         uint256 randomResult = _randomness;
         if (randomResult % 2 == 0) {
@@ -59,6 +60,7 @@ contract GetFlightData is VRFConsumerBase {
             delayStatusList["test"] = delayStatus(true, false, 100);
         }
         emit ReceiveRandomness(_requestId, _randomness);
+        return _randomness;
     }
 
     // @function getFinalStatus: get the final status about the delay
