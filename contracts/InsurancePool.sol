@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "./DegisToken.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // import "./libraries/Policy.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -13,6 +15,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 contract InsurancePool {
     using FixedPoint for *;
     using SafeMath for *;
+    using SafeERC20 for IERC20;
 
     // the onwer address of this contract
     address public owner;
@@ -77,7 +80,7 @@ contract InsurancePool {
     mapping(address => UnstakeRequest[]) private unstakeRequests;
 
     // list of all unstake users
-    address[] private unstakeUsers;
+    address[] private unstakeQueue;
 
     // current pointer of the unstake request queue
     uint256 private unstakePointer;
@@ -307,7 +310,7 @@ contract InsurancePool {
             unstakeRequests[_userAddress].push(
                 UnstakeRequest(remainingURequest, 0, false)
             );
-            unstakeUsers.push(_userAddress);
+            unstakeQueue.push(_userAddress);
             unstakeAmount = unlocked;
         }
 
@@ -326,7 +329,7 @@ contract InsurancePool {
         lockedRatio = FixedPoint.uq112x112(
             uint224(lockedBalance / currentStakingBalance)
         );
-        USDC_TOKEN.transferFrom(_userAddress, address(this), _amount);
+        USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _amount);
         emit Stake(_userAddress, _amount);
     }
 
@@ -345,7 +348,7 @@ contract InsurancePool {
         );
         //加入给用户转账的代码
         // 使用其他ERC20 代币 usdc/dai
-        USDC_TOKEN.transferFrom(address(this), _userAddress, _amount);
+        USDC_TOKEN.safeTransferFrom(address(this), _userAddress, _amount);
         emit Unstake(_userAddress, _amount);
     }
 
@@ -370,5 +373,75 @@ contract InsurancePool {
 
     function recievePremium(uint256 _premium) public {
         activePremiums += _premium;
+    }
+
+    /**
+     * @notice revert the last unstake request for a user
+     * @param _userAddress: user's address
+     */
+    function revertUnstakeRequest(address _userAddress) public {
+        UnstakeRequest[] storage userRequests = unstakeRequests[_userAddress];
+        require(
+            userRequests.length > 0,
+            "this user has no pending unstake request"
+        );
+
+        uint256 index = userRequests.length - 1;
+        uint256 remainingRequest = userRequests[index].pendingAmount -
+            userRequests[index].fulfilledAmount;
+
+        realStakingBalance += remainingRequest;
+        userInfo[_userAddress].freeBalance += remainingRequest;
+
+        removeOneRequest(_userAddress);
+    }
+
+    /**
+     * @notice revert all unstake requests for a user
+     * @param _userAddress: user's address
+     */
+    function revertAllUnstakeRequest(address _userAddress) public {
+        UnstakeRequest[] storage userRequests = unstakeRequests[_userAddress];
+        require(
+            userRequests.length > 0,
+            "this user has no pending unstake request"
+        );
+        removeAllRequest(_userAddress);
+        delete unstakeRequests[_userAddress];
+
+        uint256 remainingRequest = userInfo[_userAddress].assetBalance -
+            userInfo[_userAddress].freeBalance;
+        realStakingBalance += remainingRequest;
+        userInfo[_userAddress].freeBalance = userInfo[_userAddress]
+        .assetBalance;
+    }
+
+    /**
+     * @notice remove all unstake requests for a user
+     * @param _userAddress: user's address
+     */
+    function removeAllRequest(address _userAddress) internal {
+        for (uint256 i = 0; i < unstakeRequests[_userAddress].length; i += 1) {
+            removeOneRequest(_userAddress);
+        }
+    }
+
+    /**
+     * @notice remove one(the latest) unstake requests for a user
+     * @param _userAddress: user's address
+     */
+    function removeOneRequest(address _userAddress) internal {
+        uint256 index = unstakeQueue.length - 1;
+
+        while (index >= 0) {
+            if (unstakeQueue[index] == _userAddress) break;
+            index -= 1;
+        }
+
+        for (uint256 j = index; j < unstakeQueue.length - 1; j += 1) {
+            unstakeQueue[j] = unstakeQueue[j + 1];
+        }
+
+        unstakeQueue.pop();
     }
 }

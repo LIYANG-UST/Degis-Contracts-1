@@ -84,6 +84,7 @@ contract PolicyFlow {
      * @param _policyInfo: the info of the policy sold
      */
     function policyExpired(policyInfo memory _policyInfo) public {
+        insurancePool.updateWhenExpire(_policyInfo.premium, _policyInfo.payoff);
         emit PolicyExpired(_policyInfo.policyId, _policyInfo.buyerAddress);
     }
 
@@ -92,6 +93,7 @@ contract PolicyFlow {
      * @param _policyInfo: the info of the policy sold
      */
     function policyClaimed(policyInfo memory _policyInfo) public {
+        insurancePool.payClaim(_policyInfo.payoff);
         emit PolicyClaimed(_policyInfo.policyId, _policyInfo.buyerAddress);
     }
 }
