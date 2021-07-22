@@ -18,6 +18,8 @@ contract GetFlightData is VRFConsumerBase {
     uint256 internal fee;
     bytes32 internal keyHash;
 
+    uint256 public randomResult;
+
     struct delayStatus {
         bool isDelay;
         bool isCancelled;
@@ -29,17 +31,21 @@ contract GetFlightData is VRFConsumerBase {
     mapping(bytes32 => delayStatus) delayStatusList;
 
     constructor(
-        address _oracle,
+        //address _oracle,
         address _VRFConsumer,
         address _LINKToken,
         bytes32 _keyHash
     ) VRFConsumerBase(_VRFConsumer, _LINKToken) {
         owner = msg.sender;
-        chainlinkOracle = _oracle;
+        //chainlinkOracle = _oracle;
         LINKToken = _LINKToken;
         VRFCoordinator = _VRFConsumer;
         fee = 0.1 * 10**18;
         keyHash = _keyHash; // 0.1 LINK
+    }
+
+    function getResult() public view returns (uint256) {
+        return randomResult;
     }
 
     function getRandomNumber() public returns (bytes32) {
@@ -52,7 +58,7 @@ contract GetFlightData is VRFConsumerBase {
         internal
         override
     {
-        uint256 randomResult = _randomness;
+        randomResult = _randomness;
         if (randomResult % 2 == 0) {
             delayStatusList["test"] = delayStatus(false, false, 0);
         } else {
@@ -62,7 +68,7 @@ contract GetFlightData is VRFConsumerBase {
     }
 
     // @function getFinalStatus: get the final status about the delay
-    function getFinalStatus() public returns (delayStatus memory _status) {
+    function getFinalStatus() public pure returns (delayStatus memory _status) {
         return delayStatus(true, true, 404);
     }
 }

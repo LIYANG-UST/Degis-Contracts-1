@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "./DegisToken.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // import "./libraries/Policy.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
@@ -13,6 +15,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 contract InsurancePool {
     using FixedPoint for *;
     using SafeMath for *;
+    using SafeERC20 for IERC20;
 
     // the onwer address of this contract
     address public owner;
@@ -23,6 +26,7 @@ contract InsurancePool {
         uint256 rewardDebt;
         uint256 assetBalance; // the amount of a user's staking in the pool
         uint256 freeBalance; // the unlocked amount of a user's staking
+        uint256 unstakePointer;
     }
     mapping(address => UserInfo) userInfo;
 
@@ -58,7 +62,7 @@ contract InsurancePool {
     struct PoolInfo {
         string poolName;
         uint256 poolId;
-        uint256 degisPerShare;
+        uint256 accDegisPerShare;
         uint256 lastRewardBlock;
         uint256 degisPerBlock;
     }
@@ -77,7 +81,7 @@ contract InsurancePool {
     mapping(address => UnstakeRequest[]) private unstakeRequests;
 
     // list of all unstake users
-    address[] private unstakeUsers;
+    address[] private unstakeQueue;
 
     // current pointer of the unstake request queue
     uint256 private unstakePointer;
@@ -186,9 +190,20 @@ contract InsurancePool {
         returns (uint256)
     {
         UserInfo storage user = userInfo[_userAddress];
-        uint256 accDegisPerShare = poolInfo.degisPerShare;
+        uint256 accDegisPerShare = poolInfo.accDegisPerShare;
 
-        return user.rewardDebt;
+        if (block.number > poolInfo.lastRewardBlock) {
+            uint256 blocks = block.number - poolInfo.lastRewardBlock;
+            uint256 degisReward = blocks.mul(poolInfo.degisPerBlock);
+
+            accDegisPerShare = accDegisPerShare.add(degisReward).mul(1e12).div(
+                currentStakingBalance
+            );
+        }
+        return
+            user.assetBalance.mul(accDegisPerShare).div(1e12).sub(
+                user.rewardDebt
+            );
     }
 
     /**
@@ -279,12 +294,27 @@ contract InsurancePool {
         return true;
     }
 
-    // @function stake: a user(LP) want to stake some amount of asset
-    // @param userAddress: user's address
-    // @param amount: the amount that the user want to stake
-    function stake(address userAddress, uint256 amount) public {
-        _deposit(userAddress, amount);
-        emit Stake(userAddress, amount);
+    /**
+     * @notice stake: a user(LP) want to stake some amount of asset
+     * @param _userAddress: user's address
+     * @param _amount: the amount that the user want to stake
+     */
+    function stake(address _userAddress, uint256 _amount) public {
+        UserInfo storage user = userInfo[_userAddress];
+        if (user.assetBalance > 0) {
+            uint256 pending = user
+            .assetBalance
+            .mul(poolInfo.accDegisPerShare)
+            .div(1e12)
+            .sub(user.rewardDebt);
+            safeDegisTransfer(msg.sender, pending);
+        }
+        user.rewardDebt = user.assetBalance.mul(poolInfo.accDegisPerShare).div(
+            1e12
+        );
+
+        _deposit(_userAddress, _amount);
+        emit Stake(_userAddress, _amount);
     }
 
     /**
@@ -303,11 +333,11 @@ contract InsurancePool {
 
         if (_amount > unlocked) {
             uint256 remainingURequest = _amount - unlocked;
-
+            uint256 pointer = userInfo[_userAddress].unstakePointer;
             unstakeRequests[_userAddress].push(
                 UnstakeRequest(remainingURequest, 0, false)
             );
-            unstakeUsers.push(_userAddress);
+            unstakeQueue.push(_userAddress);
             unstakeAmount = unlocked;
         }
 
@@ -322,11 +352,13 @@ contract InsurancePool {
     function _deposit(address _userAddress, uint256 _amount) internal {
         currentStakingBalance += _amount;
         realStakingBalance += _amount;
+        availableCapacity += _amount;
         userInfo[_userAddress].assetBalance += _amount;
+        userInfo[_userAddress].freeBalance += _amount;
         lockedRatio = FixedPoint.uq112x112(
             uint224(lockedBalance / currentStakingBalance)
         );
-        USDC_TOKEN.transferFrom(_userAddress, address(this), _amount);
+        USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _amount);
         emit Stake(_userAddress, _amount);
     }
 
@@ -345,7 +377,7 @@ contract InsurancePool {
         );
         //加入给用户转账的代码
         // 使用其他ERC20 代币 usdc/dai
-        USDC_TOKEN.transferFrom(address(this), _userAddress, _amount);
+        USDC_TOKEN.safeTransferFrom(address(this), _userAddress, _amount);
         emit Unstake(_userAddress, _amount);
     }
 
@@ -362,13 +394,136 @@ contract InsurancePool {
         lockedBalance -= _payoff;
         availableCapacity += _payoff;
         rewardCollected += _premium;
+
+        uint256 remainingPayoff = _payoff;
+        uint256 pendingAmount;
+        for (uint256 i = unstakeQueue.length - 1; i >= 0; i -= 1) {
+            if (remainingPayoff >= 0) {
+                address pendingUser = unstakeQueue[i];
+                for (
+                    uint256 j = 0;
+                    j < unstakeRequests[pendingUser].length;
+                    j++
+                ) {
+                    pendingAmount = unstakeRequests[pendingUser][j]
+                    .pendingAmount;
+                    if (remainingPayoff > pendingAmount) {
+                        remainingPayoff -= pendingAmount;
+                        unstakeRequests[pendingUser].pop();
+                        USDC_TOKEN.safeTransferFrom(
+                            address(this),
+                            pendingUser,
+                            pendingAmount
+                        );
+                    } else {
+                        unstakeRequests[pendingUser][j]
+                        .pendingAmount -= pendingAmount;
+                        remainingPayoff = 0;
+                        break;
+                    }
+                }
+            } else break;
+        }
     }
 
-    function payClaim(uint256 _payoff) public {
+    function payClaim(
+        uint256 _premium,
+        uint256 _payoff,
+        address _userAddress
+    ) public {
         lockedBalance -= _payoff;
+        currentStakingBalance -= _payoff;
+        realStakingBalance -= _payoff;
+        activePremiums -= _premium;
+
+        USDC_TOKEN.safeTransferFrom(address(this), _userAddress, _payoff);
     }
 
     function recievePremium(uint256 _premium) public {
         activePremiums += _premium;
+    }
+
+    /**
+     * @notice revert the last unstake request for a user
+     * @param _userAddress: user's address
+     */
+    function revertUnstakeRequest(address _userAddress) public {
+        UnstakeRequest[] storage userRequests = unstakeRequests[_userAddress];
+        require(
+            userRequests.length > 0,
+            "this user has no pending unstake request"
+        );
+
+        uint256 index = userRequests.length - 1;
+        uint256 remainingRequest = userRequests[index].pendingAmount -
+            userRequests[index].fulfilledAmount;
+
+        realStakingBalance += remainingRequest;
+        userInfo[_userAddress].freeBalance += remainingRequest;
+
+        removeOneRequest(_userAddress);
+    }
+
+    /**
+     * @notice revert all unstake requests for a user
+     * @param _userAddress: user's address
+     */
+    function revertAllUnstakeRequest(address _userAddress) public {
+        UnstakeRequest[] storage userRequests = unstakeRequests[_userAddress];
+        require(
+            userRequests.length > 0,
+            "this user has no pending unstake request"
+        );
+        removeAllRequest(_userAddress);
+        delete unstakeRequests[_userAddress];
+
+        uint256 remainingRequest = userInfo[_userAddress].assetBalance -
+            userInfo[_userAddress].freeBalance;
+        realStakingBalance += remainingRequest;
+        userInfo[_userAddress].freeBalance = userInfo[_userAddress]
+        .assetBalance;
+    }
+
+    /**
+     * @notice remove all unstake requests for a user
+     * @param _userAddress: user's address
+     */
+    function removeAllRequest(address _userAddress) internal {
+        for (uint256 i = 0; i < unstakeRequests[_userAddress].length; i += 1) {
+            removeOneRequest(_userAddress);
+        }
+    }
+
+    /**
+     * @notice remove one(the latest) unstake requests for a user
+     * @param _userAddress: user's address
+     */
+    function removeOneRequest(address _userAddress) internal {
+        uint256 index = unstakeQueue.length - 1;
+
+        while (index >= 0) {
+            if (unstakeQueue[index] == _userAddress) break;
+            index -= 1;
+        }
+
+        for (uint256 j = index; j < unstakeQueue.length - 1; j += 1) {
+            unstakeQueue[j] = unstakeQueue[j + 1];
+        }
+
+        unstakeQueue.pop();
+    }
+
+    /**
+     * @notice safe degis transfer (if the pool has enough DEGIS token)
+     * @param _to: user's address
+     * @param _amount: amount
+     */
+    function safeDegisTransfer(address _to, uint256 _amount) internal {
+        uint256 DegisBalance = DEGIS.balanceOf(address(this));
+        if (_amount > DegisBalance) {
+            DEGIS.transfer(_to, DegisBalance);
+        } else {
+            DEGIS.transfer(_to, _amount);
+        }
     }
 }

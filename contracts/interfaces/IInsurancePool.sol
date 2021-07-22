@@ -11,10 +11,19 @@ interface IInsurancePool {
 
     function getAvailableCapacity() external view returns (uint256);
 
-    function getStakeAmount(address _userAddress)
-        external
-        view
-        returns (uint256);
+    function getStakeAmount(address) external view returns (uint256);
+
+    function getPoolInfo() external view returns (string memory);
+
+    function pendingDegis(address) external view returns (uint256);
 
     function updateWhenBuy(uint256, uint256) external returns (bool);
+
+    function payClaim(
+        uint256,
+        uint256,
+        address
+    ) external;
+
+    function updateWhenExpire(uint256, uint256) external;
 }
