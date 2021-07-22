@@ -63,8 +63,8 @@
                     <small class="form-text text-muted">eth address for buyer</small>
                 </div>
                 <div class="form-group">
-                    <label for="productId">输入产品id,默认为1</label>
-                    <input class="form-control" type="text" id="productId" placeholder="1">
+                    <label for="productId">输入产品id,默认为0</label>
+                    <input class="form-control" type="text" id="productId" placeholder="0">
                 </div>
                 <div class="form-group">
                     <label for="payoff">输入保额</label>
@@ -72,9 +72,10 @@
                 </div>
                 <div class="form-group">
                     <label for="premium">保费</label>
-                    <input class="form-control" type="text" id="premium" placeholder="" readonly>
+                    <input class="form-control" type="text" id="premium" placeholder="">
                 </div>
-                <button type="button" class="btn btn-primary">press to buy</button>
+                <button type="button" class="btn btn-primary btn-buy">press to buy</button>
+                <button type="button" class="btn btn-primary btn-rand">get randomness</button>
             </form>
         </div>
 
@@ -113,7 +114,7 @@
         </div>
 
         <div class="border" id="lppart">
-            <button type="button" class="btn btn-primary">Show my liquidity</button>
+            <button type="button" class="btn btn-primary btn-LPInfo">Show my liquidity</button>
             <div class="alert alert-light" role="alert">
                 LP's asset:
             </div>
@@ -123,6 +124,7 @@
                     </h5>
                     <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
                     <p class="card-text">Show the liquidity part</p>
+                    <p id="lpinfo-show">hello</p>
                     <a href="#" class="card-link">Card link</a>
                     <a href="#" class="card-link">Another link</a>
                 </div>

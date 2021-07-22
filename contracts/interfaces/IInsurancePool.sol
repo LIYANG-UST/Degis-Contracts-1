@@ -19,7 +19,11 @@ interface IInsurancePool {
 
     function updateWhenBuy(uint256, uint256) external returns (bool);
 
-    function payClaim(uint256) external;
+    function payClaim(
+        uint256,
+        uint256,
+        address
+    ) external;
 
     function updateWhenExpire(uint256, uint256) external;
 }

@@ -13,7 +13,7 @@ App = {
             }
 
             App.account = accounts[0];
-            console.log(App.account)
+            console.log("my account:", App.account)
         });
     },
 
@@ -38,6 +38,7 @@ App = {
         }
         console.log("init web3 finished...")
         web3 = new Web3(App.web3Provider);
+        console.log('web3 version', web3.version.api)
 
         return App.initContract();
     },
@@ -60,6 +61,18 @@ App = {
             App.contracts.InsurancePool.setProvider(App.web3Provider);
             console.log('init insurance pool')
         });
+        $.getJSON("PolicyFlow.json", function (data) {
+            var PolicyFlowArtifact = data;
+            App.contracts.PolicyFlow = TruffleContract(PolicyFlowArtifact);
+            App.contracts.PolicyFlow.setProvider(App.web3Provider);
+            console.log('init policy flow')
+        });
+        $.getJSON("GetFlightData.json", function (data) {
+            var GetFlightDataArtifact = data;
+            App.contracts.GetFlightData = TruffleContract(GetFlightDataArtifact);
+            App.contracts.GetFlightData.setProvider(App.web3Provider);
+            console.log('init get flight data')
+        });
         //调用事件
         return App.bindEvents();
     },
@@ -68,6 +81,9 @@ App = {
         $(document).on('click', '.btn-mint', App.mint);
         $(document).on('click', '.btn-getpoolinfo', App.getPoolInfo);
         $(document).on('click', '.btn-stake', App.deposit);
+        $(document).on('click', '.btn-buy', App.newApplication);
+        $(document).on('click', '.btn-rand', App.getRandomness);
+        $(document).on('click', '.btn-LPInfo', App.showLPInfo);
     },
     //合约的mint方法
     mint: function () {
@@ -86,6 +102,7 @@ App = {
             DegisInstance = instance;
             let mintaddress = document.getElementById("minter").value;
             let mint_num = document.getElementById("mint_number").value;
+            mint_num = web3.toWei(mint_num);
             console.log(typeof (mintaddress), typeof (mint_num));
             return DegisInstance.mint(mintaddress, parseInt(mint_num), { from: App.account });
         }).catch(function (err) { //get方法执行失败打印错误
@@ -97,14 +114,71 @@ App = {
         var PoolInstance;
         console.log('get pool info...');
 
+
         App.contracts.InsurancePool.deployed().then(function (instance) {
             PoolInstance = instance;
             PoolInstance.getPoolInfo({ from: App.account }).then(value => console.log("pool name:", value));
-            PoolInstance.getAvailableCapacity({ from: App.account }).then(value => console.log("available capacity", parseInt(value)));
-            PoolInstance.getStakeAmount(App.account, { from: App.account }).then(value => console.log("your stake amount:", parseInt(value) / 10 ** 18));
+            PoolInstance.getAvailableCapacity({ from: App.account }).then(value => console.log("available capacity", parseInt(value) / 10 ** 18));
+            PoolInstance.getTotalLocked({ from: App.account }).then(value => console.log("total locked amount:", parseInt(value) / 10 ** 18));
         }).catch(function (err) { //get方法执行失败打印错误
             console.log(err.message);
         });
+    },
+
+    showLPInfo: function () {
+        App.contracts.InsurancePool.deployed().then(function (instance) {
+            PoolInstance = instance;
+            PoolInstance.getStakeAmount(App.account, { from: App.account }).then(value => {
+                console.log("your stake amount:", parseInt(value) / 10 ** 18)
+                var obj = document.getElementById("lpinfo-show");
+                //alert(obj.innerText);
+                obj.innerText = ("stake amount:  " + parseInt(value) / 10 ** 18);
+            });
+            PoolInstance.getUnlockedfor(App.account, { from: App.account }).then(value => {
+                console.log("your unlocked amount:", parseInt(value) / 10 ** 18);
+                var obj = document.getElementById("lpinfo-show");
+                //alert(obj.innerText);
+                obj.innerText += ("\n unlocked amount:  " + parseInt(value) / 10 ** 18);
+            }
+            );
+
+        });
+    },
+
+    getRandomness: function () {
+        var CLInstance;
+        console.log('get random number...');
+        App.contracts.GetFlightData.deployed().then(function (instance) {
+            CLInstance = instance;
+
+            CLInstance.getRandomNumber({ from: App.account }).then(value => {
+                //let r_value = web3.utils.hexToAscii(value);
+                //console.log(r_value);
+
+                CLInstance.getResult({ from: App.account }).then(p_value => {
+                    console.log(parseInt(p_value));
+                });
+
+            });
+        })
+    },
+
+    newApplication: function () {
+        console.log('buy new policy');
+
+        //let PolicyFlowInstance = await App.contracts.PolicyFlow.deployed();
+        let premium = web3.toWei(document.getElementById("premium").value);
+        let payoff = web3.toWei(document.getElementById("payoff").value);
+        let timestamp = 1627019978
+        App.contracts.PolicyFlow.deployed().then(function (instance) {
+            PolicyFlowInstance = instance;
+
+            PolicyFlowInstance.newApplication(App.account,
+                0,
+                parseInt(premium),
+                parseInt(payoff),
+                timestamp, { from: App.account }).then(value => console.log(web3.toAscii(value)))
+        })
     },
 
     deposit: function () {
@@ -116,6 +190,7 @@ App = {
         App.contracts.InsurancePool.deployed().then(function (instance) {
             PoolInstance = instance;
             let deposit_amount = document.getElementById('stake_number').value;
+            console.log("deposit amount in token:", deposit_amount)
             f_amount = web3.toWei(deposit_amount);
             console.log("deposit amount in wei:", f_amount)
 

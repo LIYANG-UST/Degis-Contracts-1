@@ -26,6 +26,7 @@ contract InsurancePool {
         uint256 rewardDebt;
         uint256 assetBalance; // the amount of a user's staking in the pool
         uint256 freeBalance; // the unlocked amount of a user's staking
+        uint256 unstakePointer;
     }
     mapping(address => UserInfo) userInfo;
 
@@ -332,7 +333,7 @@ contract InsurancePool {
 
         if (_amount > unlocked) {
             uint256 remainingURequest = _amount - unlocked;
-
+            uint256 pointer = userInfo[_userAddress].unstakePointer;
             unstakeRequests[_userAddress].push(
                 UnstakeRequest(remainingURequest, 0, false)
             );
@@ -393,10 +394,49 @@ contract InsurancePool {
         lockedBalance -= _payoff;
         availableCapacity += _payoff;
         rewardCollected += _premium;
+
+        uint256 remainingPayoff = _payoff;
+        uint256 pendingAmount;
+        for (uint256 i = unstakeQueue.length - 1; i >= 0; i -= 1) {
+            if (remainingPayoff >= 0) {
+                address pendingUser = unstakeQueue[i];
+                for (
+                    uint256 j = 0;
+                    j < unstakeRequests[pendingUser].length;
+                    j++
+                ) {
+                    pendingAmount = unstakeRequests[pendingUser][j]
+                    .pendingAmount;
+                    if (remainingPayoff > pendingAmount) {
+                        remainingPayoff -= pendingAmount;
+                        unstakeRequests[pendingUser].pop();
+                        USDC_TOKEN.safeTransferFrom(
+                            address(this),
+                            pendingUser,
+                            pendingAmount
+                        );
+                    } else {
+                        unstakeRequests[pendingUser][j]
+                        .pendingAmount -= pendingAmount;
+                        remainingPayoff = 0;
+                        break;
+                    }
+                }
+            } else break;
+        }
     }
 
-    function payClaim(uint256 _payoff) public {
+    function payClaim(
+        uint256 _premium,
+        uint256 _payoff,
+        address _userAddress
+    ) public {
         lockedBalance -= _payoff;
+        currentStakingBalance -= _payoff;
+        realStakingBalance -= _payoff;
+        activePremiums -= _premium;
+
+        USDC_TOKEN.safeTransferFrom(address(this), _userAddress, _payoff);
     }
 
     function recievePremium(uint256 _premium) public {
@@ -479,11 +519,11 @@ contract InsurancePool {
      * @param _amount: amount
      */
     function safeDegisTransfer(address _to, uint256 _amount) internal {
-        uint256 DegisBalance = DegisToken.balanceOf(address(this));
+        uint256 DegisBalance = DEGIS.balanceOf(address(this));
         if (_amount > DegisBalance) {
-            DegisToken.transfer(_to, DegisBalance);
+            DEGIS.transfer(_to, DegisBalance);
         } else {
-            DegisToken.transfer(_to, _amount);
+            DEGIS.transfer(_to, _amount);
         }
     }
 }
