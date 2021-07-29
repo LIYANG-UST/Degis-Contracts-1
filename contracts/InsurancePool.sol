@@ -237,8 +237,8 @@ contract InsurancePool {
     {
         uint256 user_balance = userInfo[_userAddress].assetBalance;
         uint256 _locked_user_balance = lockedRatio
-        .mul(user_balance)
-        .decode144();
+            .mul(user_balance)
+            .decode144();
         return user_balance - _locked_user_balance;
     }
 
@@ -303,10 +303,10 @@ contract InsurancePool {
         UserInfo storage user = userInfo[_userAddress];
         if (user.assetBalance > 0) {
             uint256 pending = user
-            .assetBalance
-            .mul(poolInfo.accDegisPerShare)
-            .div(1e12)
-            .sub(user.rewardDebt);
+                .assetBalance
+                .mul(poolInfo.accDegisPerShare)
+                .div(1e12)
+                .sub(user.rewardDebt);
             safeDegisTransfer(msg.sender, pending);
         }
         user.rewardDebt = user.assetBalance.mul(poolInfo.accDegisPerShare).div(
@@ -358,6 +358,7 @@ contract InsurancePool {
         lockedRatio = FixedPoint.uq112x112(
             uint224(lockedBalance / currentStakingBalance)
         );
+        USDC_TOKEN.safeApprove(address(this), _amount);
         USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _amount);
         emit Stake(_userAddress, _amount);
     }
@@ -377,6 +378,7 @@ contract InsurancePool {
         );
         //加入给用户转账的代码
         // 使用其他ERC20 代币 usdc/dai
+        USDC_TOKEN.safeApprove(address(this), _amount);
         USDC_TOKEN.safeTransferFrom(address(this), _userAddress, _amount);
         emit Unstake(_userAddress, _amount);
     }
@@ -406,10 +408,11 @@ contract InsurancePool {
                     j++
                 ) {
                     pendingAmount = unstakeRequests[pendingUser][j]
-                    .pendingAmount;
+                        .pendingAmount;
                     if (remainingPayoff > pendingAmount) {
                         remainingPayoff -= pendingAmount;
                         unstakeRequests[pendingUser].pop();
+                        USDC_TOKEN.safeApprove(address(this), pendingAmount);
                         USDC_TOKEN.safeTransferFrom(
                             address(this),
                             pendingUser,
@@ -417,7 +420,7 @@ contract InsurancePool {
                         );
                     } else {
                         unstakeRequests[pendingUser][j]
-                        .pendingAmount -= pendingAmount;
+                            .pendingAmount -= pendingAmount;
                         remainingPayoff = 0;
                         break;
                     }
@@ -436,6 +439,7 @@ contract InsurancePool {
         realStakingBalance -= _payoff;
         activePremiums -= _premium;
 
+        USDC_TOKEN.safeApprove(address(this), _payoff);
         USDC_TOKEN.safeTransferFrom(address(this), _userAddress, _payoff);
     }
 
@@ -481,7 +485,7 @@ contract InsurancePool {
             userInfo[_userAddress].freeBalance;
         realStakingBalance += remainingRequest;
         userInfo[_userAddress].freeBalance = userInfo[_userAddress]
-        .assetBalance;
+            .assetBalance;
     }
 
     /**

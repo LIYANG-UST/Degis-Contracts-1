@@ -24,7 +24,7 @@ interface IPolicyFlow {
         uint256 _premium,
         uint256 _payoff,
         uint256 _expiryDate
-    ) external returns (bytes32);
+    ) external returns (string memory);
 
     function policyCheck(policyInfo memory _policyInfo) external;
 

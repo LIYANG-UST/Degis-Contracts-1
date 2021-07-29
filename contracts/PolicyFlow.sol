@@ -9,6 +9,9 @@ contract PolicyFlow {
     IInsurancePool insurancePool;
     address public oracleAddress;
 
+    // Minimum time before departure for applying
+    uint256 public constant MIN_TIME_BEFORE_DEPARTURE = 24 hours;
+
     enum PolicyStatus {
         INI,
         SOLD,
@@ -40,6 +43,14 @@ contract PolicyFlow {
         owner = msg.sender;
         insurancePool = _insurancePool;
         oracleAddress = _oracleAddress;
+    }
+
+    modifier onlyOracle() {
+        require(
+            msg.sender == oracleAddress,
+            "only the oracle can call this function"
+        );
+        _;
     }
 
     function viewPolicy(address _userAddress)
@@ -102,11 +113,11 @@ contract PolicyFlow {
 
     /**
      * @notice start a new policy application
-     * @param _userAddress: user's address
-     * @param _productId: ID of the purchased product
-     * @param _premium: premium of this policy
-     * @param _payoff: payoff of this policy
-     * @param _expiryDate: expiry date of this policy
+     * @param _userAddress: user's address (buyer)
+     * @param _productId: ID of the purchased product (0: flightdelay; 1,2,3...: others) (different products)
+     * @param _premium: premium of this policy (decimal 18)
+     * @param _payoff: payoff of this policy (decimal 18)
+     * @param _expiryDate: expiry date of this policy (unix timestamp)
      */
     function newApplication(
         address _userAddress,
@@ -114,10 +125,17 @@ contract PolicyFlow {
         uint256 _premium,
         uint256 _payoff,
         uint256 _expiryDate
-    ) public returns (bytes32) {
+    ) public returns (string memory) {
+        // Check the buying time not too close to the departure time
+        require(
+            _expiryDate >= block.timestamp + MIN_TIME_BEFORE_DEPARTURE,
+            "ERROR::TIME_TO_DEPARTURE_TOO_SMALL"
+        );
+        // Generate the unique policyId
         bytes32 TEMP_policyId = keccak256(
             abi.encodePacked(_userAddress, _productId, _expiryDate)
         );
+        // Generate the policy
         policyList[TEMP_policyId] = policyInfo(
             _productId,
             _userAddress,
@@ -126,13 +144,14 @@ contract PolicyFlow {
             _payoff,
             _expiryDate,
             PolicyStatus.INI
-        ); //Initialized
+        );
         userPolicy[_userAddress].push(TEMP_policyId); //store the policyID with userAddress
         userPolicyCount[_userAddress] += 1;
+        //string memory policyId_RETURN = bytesToString(TEMP_policyId);
         emit newPolicyApplication(TEMP_policyId, _userAddress);
         // Check the policy with the insurance pool status
         policyCheck(_premium, _payoff, _userAddress, TEMP_policyId);
-        return TEMP_policyId;
+        return string(abi.encodePacked(TEMP_policyId));
     }
 
     /**
@@ -148,7 +167,11 @@ contract PolicyFlow {
         address _userAddress,
         bytes32 _policyId
     ) public {
-        bool _isAccepted = insurancePool.updateWhenBuy(_premium, _payoff);
+        bool _isAccepted = insurancePool.updateWhenBuy(
+            _premium,
+            _payoff,
+            _userAddress
+        );
         if (_isAccepted) {
             policyList[_policyId].status = PolicyStatus.SOLD;
             emit PolicySold(_policyId, _userAddress);
@@ -191,5 +214,35 @@ contract PolicyFlow {
         insurancePool.payClaim(_premium, _payoff, _userAddress);
         policyList[_policyId].status = PolicyStatus.CLAIMED;
         emit PolicyClaimed(_policyId, _userAddress);
+    }
+
+    function policyFinalCheck(bytes32 _policyId) public returns (bool) {
+        // request final status from chainlink, return requestId
+        // Set the callback function as "policyStatusCallback"
+    }
+
+    function policyStatusCallback(bytes32 _requestId, bytes32 _response)
+        public
+        onlyOracle
+    {
+        // Take different actions with the _response
+        // ['canclled', 'delayed', 'delaytime'] bool, bool, uint256
+    }
+
+    function bytesToString(bytes32 _bytes) internal returns (string memory) {
+        bytes memory bytesString = new bytes(32);
+        uint256 charCount = 0;
+        for (uint256 j = 0; j < 32; j++) {
+            bytes1 char = bytes1(bytes32(uint256(_bytes) * 2**(8 * j)));
+            if (char != 0) {
+                bytesString[charCount] = char;
+                charCount++;
+            }
+        }
+        bytes memory bytesStringTrimmed = new bytes(charCount);
+        for (uint256 j = 0; j < charCount; j++) {
+            bytesStringTrimmed[j] = bytesString[j];
+        }
+        return string(bytesStringTrimmed);
     }
 }

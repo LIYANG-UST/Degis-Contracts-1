@@ -46,11 +46,12 @@
             <form>
                 <h2 class="mx-auto">Stake Part</h2>
                 <div class="form-group">
-                    <label for="stake_number">输入质押的USDC数量</label>
+                    <label for="stake_number">输入质押/提取的USDC数量</label>
                     <input class="form-control" type="text" id="stake_number">
                     <small id="stake_number_help" class="form-text text-muted">decimals:18</small>
                 </div>
                 <button type="button" class="btn btn-primary btn-stake">press to stake</button>
+                <button type="button" class="btn btn-primary btn-unstake">press to unstake</button>
             </form>
         </div>
 
@@ -80,21 +81,7 @@
         </div>
 
 
-        <div class="border" id="userpart">
-            <button type="button" class="btn btn-primary">Show my policies</button>
-            <div class="alert alert-light" role="alert">
-                User's policies:
-            </div>
-            <div class="card" style="width: 18rem;">
-                <div class="card-body">
-                    <h5 class="card-title">Policy1</h5>
-                    <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
-                    <p class="card-text">Show the policy info</p>
-                    <a href="#" class="card-link">Card link</a>
-                    <a href="#" class="card-link">Another link</a>
-                </div>
-            </div>
-        </div>
+
 
         <div class="border" id="poolpart">
             <button type="button" class="btn btn-primary btn-getpoolinfo">Show the pool info</button>
@@ -125,6 +112,22 @@
                     <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
                     <p class="card-text">Show the liquidity part</p>
                     <p id="lpinfo-show">hello</p>
+                    <a href="#" class="card-link">Card link</a>
+                    <a href="#" class="card-link">Another link</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="border" id="userpart">
+            <button type="button" class="btn btn-primary">Show my policies</button>
+            <div class="alert alert-light" role="alert">
+                User's policies:
+            </div>
+            <div class="card" style="width: 18rem;">
+                <div class="card-body">
+                    <h5 class="card-title">Policy1</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
+                    <p class="card-text">Show the policy info</p>
                     <a href="#" class="card-link">Card link</a>
                     <a href="#" class="card-link">Another link</a>
                 </div>

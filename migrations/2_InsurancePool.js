@@ -20,6 +20,6 @@ module.exports = async function (deployer, network) {
     else if (network.startsWith('development')) {
         await deployer.deploy(MockUSD)
         await deployer.deploy(DegisToken)
-        await deployer.deploy(InsurancePool, 100, DegisToken.address, MockUSD.address)
+        await deployer.deploy(InsurancePool, 100, DegisToken.address, MockUSD.address, DEGIS_PER_BLOCK)
     }
 };
