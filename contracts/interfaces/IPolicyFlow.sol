@@ -17,6 +17,7 @@ interface IPolicyFlow {
     event PolicyDeclined(bytes32 _policyID, address);
     event PolicyClaimed(bytes32 _policyID, address);
     event PolicyExpired(bytes32 _policyID, address);
+    event FulfilledOracleRequest(bytes32 _policyId, bytes32 _requestId);
 
     function newApplication(
         address _userAddress,
@@ -24,11 +25,40 @@ interface IPolicyFlow {
         uint256 _premium,
         uint256 _payoff,
         uint256 _expiryDate
-    ) external returns (bytes32);
+    ) external returns (string memory);
 
-    function policyCheck(policyInfo memory _policyInfo) external;
+    function policyCheck(
+        uint256,
+        uint256,
+        address,
+        bytes32
+    ) external;
 
-    function policyExpired(policyInfo memory _policyInfo) external;
+    function policyExpired(
+        uint256,
+        uint256,
+        address,
+        bytes32
+    ) external;
 
-    function policyClaimed(policyInfo memory _policyInfo) external;
+    function policyClaimed(
+        uint256,
+        uint256,
+        address,
+        bytes32
+    ) external;
+
+    function viewPolicy(address) external view returns (string memory);
+
+    function getPolicyInfoByCount(uint256)
+        external
+        view
+        returns (
+            bytes32,
+            uint256,
+            address,
+            uint256,
+            uint256,
+            uint256
+        );
 }

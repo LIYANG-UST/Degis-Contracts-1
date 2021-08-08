@@ -27,6 +27,7 @@ contract GetFlightData is VRFConsumerBase {
     }
 
     event ReceiveRandomness(bytes32, uint256);
+    event SendRequest(bytes32);
 
     mapping(bytes32 => delayStatus) delayStatusList;
 
@@ -51,6 +52,7 @@ contract GetFlightData is VRFConsumerBase {
     function getRandomNumber() public returns (bytes32) {
         require(LINK.balanceOf(address(this)) >= fee, "not enough LINK");
         bytes32 requestId = requestRandomness(keyHash, fee);
+        emit SendRequest(requestId);
         return requestId;
     }
 
