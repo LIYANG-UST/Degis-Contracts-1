@@ -17,7 +17,8 @@
  * phrase from a file you've .gitignored so it doesn't accidentally become public.
  *
  */
-
+require('babel-register');
+require('babel-polyfill');
 const HDWalletProvider = require('@truffle/hdwallet-provider');
 
 //

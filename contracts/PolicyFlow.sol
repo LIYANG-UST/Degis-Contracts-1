@@ -136,11 +136,11 @@ contract PolicyFlow is ChainlinkClient {
         pure
         returns (string memory)
     {
-        return (uint256(uint160(addr))).toHexString(32);
+        return (uint256(uint160(addr))).toHexString(20);
     }
 
     function byToString(bytes32 _bytes) internal pure returns (string memory) {
-        return (uint256(_bytes)).toHexString(20);
+        return (uint256(_bytes)).toHexString(32);
     }
 
     function bytes32ToString(bytes32 _bytes32)
