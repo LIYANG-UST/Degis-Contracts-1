@@ -21,6 +21,18 @@
         Degis is an ecosystem for decentralized insurance
     </h1>
     <br>
+    <div id="initpart">
+        <button type="button" class="btn btn-primary btn-init">Connect to wallet</button>
+        <br>
+        <br>
+        <p id="account">Account: </p>
+        <p id="balance">Balance: </p>
+        <p id="pooladdress">Pool Address: </p>
+        <br>
+        <br>
+        <button type="button" class="btn btn-primary btn-updatepolicyflow">Update Policy Flow Address</button>
+        <button type="button" class="btn btn-primary btn-updatepooladdress">Update Pool Address</button>
+    </div>
 
 
     <div id="content">
@@ -36,9 +48,10 @@
                     <label for="minter">输入你的地址</label>
                     <input class="form-control" type="text" id="minter">
                     <small id="minter_help" class="form-text text-muted">eth address</small>
-                    <br />
+
                 </div>
                 <button type="button" class="btn btn-primary btn-mint">press to mint</button>
+                <button type="button" class="btn btn-primary btn-mintnft">press to mint NFT</button>
             </form>
         </div>
 
@@ -52,6 +65,7 @@
                 </div>
                 <button type="button" class="btn btn-primary btn-stake">press to stake</button>
                 <button type="button" class="btn btn-primary btn-unstake">press to unstake</button>
+                <button type="button" class="btn btn-primary btn-allowance">press to check allowance</button>
             </form>
         </div>
 
@@ -77,6 +91,7 @@
                 </div>
                 <button type="button" class="btn btn-primary btn-buy">press to buy</button>
                 <button type="button" class="btn btn-primary btn-rand">get randomness</button>
+                <button type="button" class="btn btn-primary btn-totalpolicy">get total policies in the pool</button>
             </form>
         </div>
 
@@ -87,16 +102,6 @@
             <button type="button" class="btn btn-primary btn-getpoolinfo">Show the pool info</button>
             <div class="alert alert-light" role="alert">
                 Poolinfo: DegisPerShare, Poolname, PoolId....
-            </div>
-            <div class="card" style="width: 18rem;">
-                <div class="card-body">
-                    <h5 class="card-title">LP Token
-                    </h5>
-                    <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
-                    <p class="card-text">Show the pool info</p>
-                    <a href="#" class="card-link">Card link</a>
-                    <a href="#" class="card-link">Another link</a>
-                </div>
             </div>
         </div>
 
@@ -119,15 +124,14 @@
         </div>
 
         <div class="border" id="userpart">
-            <button type="button" class="btn btn-primary">Show my policies</button>
+            <button type="button" class="btn btn-primary btn-userpolicy">Show my policies</button>
             <div class="alert alert-light" role="alert">
                 User's policies:
             </div>
             <div class="card" style="width: 18rem;">
                 <div class="card-body">
-                    <h5 class="card-title">Policy1</h5>
-                    <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
-                    <p class="card-text">Show the policy info</p>
+                    <h5 class="card-title">Policy Number</h5>
+                    <p id="userpolicy-show">hello</p>
                     <a href="#" class="card-link">Card link</a>
                     <a href="#" class="card-link">Another link</a>
                 </div>

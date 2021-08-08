@@ -12,9 +12,20 @@ npm install -g truffle
 npm install
 ```
 
+## Compile and Migrate
+```
+truffle compile --all
+truffle migrate --network <networkname> --reset
+```
+
+## Lite-server Test
+```
+npm run dev
+```
+
 ## Structure
 - contracts/: smart contracts files
-- src/: frontend files
+- src/: frontend test files
 - test/: test files (have not begun)
 - truffle-config.js: config file for truffle (network, mnemonic, infuraKey)
 - migrations/: migration files 

@@ -124,7 +124,7 @@ contract InsurancePool {
             "insurancepool",
             0,
             0,
-            block.timestamp,
+            block.number,
             _degisPerBlock
         );
     }
@@ -183,7 +183,7 @@ contract InsurancePool {
         return name;
     }
 
-    // View function to see pending SUSHIs on frontend.
+    // View function to see pending DEGIS on frontend.
     function pendingDegis(address _userAddress)
         external
         view
@@ -196,12 +196,12 @@ contract InsurancePool {
             uint256 blocks = block.number - poolInfo.lastRewardBlock;
             uint256 degisReward = blocks.mul(poolInfo.degisPerBlock);
 
-            accDegisPerShare = accDegisPerShare.add(degisReward).mul(1e12).div(
+            accDegisPerShare = accDegisPerShare.add(degisReward).mul(1e18).div(
                 currentStakingBalance
             );
         }
         return
-            user.assetBalance.mul(accDegisPerShare).div(1e12).sub(
+            user.assetBalance.mul(accDegisPerShare).div(1e18).sub(
                 user.rewardDebt
             );
     }
@@ -226,9 +226,17 @@ contract InsurancePool {
     }
 
     /**
+     * @notice get the balance that the pool can unlock(maximum)
+     * @return the amount that the pool can unlock
+     */
+    function getPoolUnlocked() public view returns (uint256) {
+        return currentStakingBalance - lockedBalance;
+    }
+
+    /**
      * @notice get the balance that one user(LP) can unlock(maximum)
      * @param _userAddress: user's address
-     * @return _amount: the amount that the user can unlock
+     * @return the amount that the user can unlock
      */
     function getUnlockedfor(address _userAddress)
         public
@@ -305,12 +313,13 @@ contract InsurancePool {
             uint256 pending = user
                 .assetBalance
                 .mul(poolInfo.accDegisPerShare)
-                .div(1e12)
+                .div(1e18)
                 .sub(user.rewardDebt);
             safeDegisTransfer(msg.sender, pending);
+            poolInfo.lastRewardBlock = block.number;
         }
         user.rewardDebt = user.assetBalance.mul(poolInfo.accDegisPerShare).div(
-            1e12
+            1e18
         );
 
         _deposit(_userAddress, _amount);
@@ -328,7 +337,8 @@ contract InsurancePool {
             "not enough balance to be unlocked"
         );
 
-        uint256 unlocked = getUnlockedfor(_userAddress);
+        // uint256 unlocked = getUnlockedfor(_userAddress);
+        uint256 unlocked = getPoolUnlocked();
         uint256 unstakeAmount = _amount;
 
         if (_amount > unlocked) {
@@ -340,6 +350,21 @@ contract InsurancePool {
             unstakeQueue.push(_userAddress);
             unstakeAmount = unlocked;
         }
+
+        UserInfo storage user = userInfo[_userAddress];
+        if (user.assetBalance > 0) {
+            uint256 pending = user
+                .assetBalance
+                .mul(poolInfo.accDegisPerShare)
+                .div(1e18)
+                .sub(user.rewardDebt);
+            safeDegisTransfer(msg.sender, pending);
+            poolInfo.lastRewardBlock = block.number;
+        }
+
+        user.rewardDebt = user.assetBalance.mul(poolInfo.accDegisPerShare).div(
+            1e18
+        );
 
         _withdraw(_userAddress, unstakeAmount);
     }
@@ -358,7 +383,7 @@ contract InsurancePool {
         lockedRatio = FixedPoint.uq112x112(
             uint224(lockedBalance / currentStakingBalance)
         );
-        USDC_TOKEN.safeApprove(address(this), _amount);
+
         USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _amount);
         emit Stake(_userAddress, _amount);
     }
@@ -371,6 +396,7 @@ contract InsurancePool {
     function _withdraw(address _userAddress, uint256 _amount) internal {
         currentStakingBalance -= _amount;
         realStakingBalance -= _amount;
+        availableCapacity -= _amount;
         userInfo[_userAddress].assetBalance -= _amount;
         userInfo[_userAddress].freeBalance -= _amount;
         lockedRatio = FixedPoint.uq112x112(
@@ -378,8 +404,8 @@ contract InsurancePool {
         );
         //加入给用户转账的代码
         // 使用其他ERC20 代币 usdc/dai
-        USDC_TOKEN.safeApprove(address(this), _amount);
-        USDC_TOKEN.safeTransferFrom(address(this), _userAddress, _amount);
+
+        USDC_TOKEN.safeTransfer(_userAddress, _amount);
         emit Unstake(_userAddress, _amount);
     }
 
@@ -412,7 +438,7 @@ contract InsurancePool {
                     if (remainingPayoff > pendingAmount) {
                         remainingPayoff -= pendingAmount;
                         unstakeRequests[pendingUser].pop();
-                        USDC_TOKEN.safeApprove(address(this), pendingAmount);
+
                         USDC_TOKEN.safeTransferFrom(
                             address(this),
                             pendingUser,
@@ -439,7 +465,6 @@ contract InsurancePool {
         realStakingBalance -= _payoff;
         activePremiums -= _premium;
 
-        USDC_TOKEN.safeApprove(address(this), _payoff);
         USDC_TOKEN.safeTransferFrom(address(this), _userAddress, _payoff);
     }
 
