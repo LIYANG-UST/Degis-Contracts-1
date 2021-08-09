@@ -4,7 +4,7 @@ Codes of degis contracts and a toy model for online test.
 
 ## Preparation
 ### Install Truffle
-```
+```bash
 npm install -g truffle
 ```
 ### Keys
@@ -14,33 +14,33 @@ npm install -g truffle
 
 
 ## Install Dependencies
-```
+```bash
 npm install
 ```
 
 ## Compile and Migrate
-```
+```bash
 truffle compile --all
 truffle migrate --network <networkname> --reset
 ```
 
 ## Test
 ### Test with ganache (network: development)
-```
+```bash
 truffle test
 ```
 
 ### Test with scripts
-```
+```bash
 npx truffle exec scripts/<script name> --network <network name>
 ```
 or
-```
+```bash
 truffle exec scripts/<script name> --network <network name>
 ```
 
 ### Lite-server Test
-```
+```bash
 npm run dev
 ```
 
