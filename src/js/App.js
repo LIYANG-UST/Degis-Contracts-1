@@ -324,7 +324,7 @@ App = {
                     instance.getPolicyInfoByCount(i, { from: App.account }).then(value => {
                         console.log(value)
                     })
-                    instance.bytes32ToStr('0x657468657265756d000000000000000000000000000000000000000000000000', { from: App.account }).then(value => {
+                    instance.bytes32ToString('0x657468657265756d000000000000000000000000000000000000000000000000', { from: App.account }).then(value => {
                         console.log(value)
                     })
                 }
