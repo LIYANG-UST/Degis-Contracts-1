@@ -13,13 +13,12 @@ contract PolicyFlow is ChainlinkClient {
 
     uint256 volume; // A test variable
     uint256 fee;
-    address private oracle;
+    address private oracleAddress;
     bytes32 private jobId;
 
     address public owner;
     IInsurancePool insurancePool;
     IPolicyToken policyToken;
-    address public oracleAddress;
 
     // Minimum time before departure for applying
     uint256 public constant MIN_TIME_BEFORE_DEPARTURE = 24 hours;
@@ -43,6 +42,8 @@ contract PolicyFlow is ChainlinkClient {
         uint256 expiryDate;
         PolicyStatus status;
     }
+
+    // Events list
     event newPolicyApplication(bytes32 _policyID, address);
     event PolicySold(bytes32 _policyID, address);
     event PolicyDeclined(bytes32 _policyID, address);
@@ -50,6 +51,7 @@ contract PolicyFlow is ChainlinkClient {
     event PolicyExpired(bytes32 _policyID, address);
     event FulfilledOracleRequest(bytes32 _policyId, bytes32 _requestId);
 
+    // Mappings
     mapping(bytes32 => policyInfo) policyList;
     mapping(uint256 => bytes32) policyList2;
 
@@ -58,21 +60,27 @@ contract PolicyFlow is ChainlinkClient {
     mapping(address => uint256[]) userPolicy;
     mapping(address => uint256) userPolicyCount;
 
+    // Constructor Function
     constructor(
         IInsurancePool _insurancePool,
         IPolicyToken _policyToken,
         address _oracleAddress
     ) {
+        // set owner address
         owner = msg.sender;
+
+        // set two interfaces' addresses
         insurancePool = _insurancePool;
         policyToken = _policyToken;
-        oracleAddress = _oracleAddress;
-        Total_Policies = 0;
 
+        // set oracle
+        oracleAddress = _oracleAddress;
+        jobId = "6d1bfe27e7034b1d87b5270556b17277";
         setPublicChainlinkToken();
-        oracle = 0x7AFe1118Ea78C1eae84ca8feE5C65Bc76CcF879e;
-        jobId = "b0bde308282843d49a3a8d2dd2464af1";
         fee = 0.1 * 10**18;
+
+        // Initialized the count
+        Total_Policies = 0;
     }
 
     modifier onlyOracle() {
@@ -81,6 +89,40 @@ contract PolicyFlow is ChainlinkClient {
             "only the oracle can call this function"
         );
         _;
+    }
+    modifier onlyOwner() {
+        require(msg.sender == owner, "only the owner can call this function");
+        _;
+    }
+
+    /**
+     * @notice change the job id
+     * @param _jobId: new job Id
+     */
+    function changeJobId(bytes32 _jobId) public onlyOwner {
+        jobId = _jobId;
+    }
+
+    /**
+     * @notice change the oracle address
+     * @param _oracleAddress: new oracle address
+     */
+    function changeOrcaleAddress(address _oracleAddress) public onlyOwner {
+        oracleAddress = _oracleAddress;
+    }
+
+    /**
+     * @notice show the current job id
+     */
+    function getJobId() public view onlyOwner returns (bytes32) {
+        return jobId;
+    }
+
+    /**
+     * @notice show the current oracle address
+     */
+    function getOrcaleAddress() public view onlyOwner returns (address) {
+        return oracleAddress;
     }
 
     /**
@@ -131,34 +173,58 @@ contract PolicyFlow is ChainlinkClient {
         return result;
     }
 
-    function addressToString(address addr)
+    /**
+     * @notice transfer an address to a string
+     * @param _addr: input address
+     * @return string form of _addr
+     */
+    function addressToString(address _addr)
         internal
         pure
         returns (string memory)
     {
-        return (uint256(uint160(addr))).toHexString(20);
+        return (uint256(uint160(_addr))).toHexString(20);
     }
 
+    /**
+     * @notice transfer bytes32 to string (not change the content)
+     * @param _bytes: input bytes32
+     * @return string form of _bytes
+     */
     function byToString(bytes32 _bytes) internal pure returns (string memory) {
         return (uint256(_bytes)).toHexString(32);
     }
 
-    function bytes32ToString(bytes32 _bytes32)
+    /**
+     * @notice transfer bytes32 to string (human-readable form)
+     * @param _bytes: input bytes32
+     * @return string form of _bytes
+     */
+    function bytes32ToString(bytes32 _bytes)
         public
         pure
         returns (string memory)
     {
         bytes memory bytesArray = new bytes(32);
         for (uint256 i; i < 32; i++) {
-            bytesArray[i] = _bytes32[i];
+            bytesArray[i] = _bytes[i];
         }
         return string(bytesArray);
     }
 
+    /**
+     * @notice get the policyId (bytes32) from its count/order
+     * @param _count: total count
+     * @return policyId (bytes32)
+     */
     function getPolicyIdByCount(uint256 _count) public view returns (bytes32) {
         return policyList2[_count];
     }
 
+    /**
+     * @notice get the policyInfo from its count/order
+     * @param _count: total count
+     */
     function getPolicyInfoByCount(uint256 _count)
         public
         view
@@ -182,6 +248,10 @@ contract PolicyFlow is ChainlinkClient {
         );
     }
 
+    /**
+     * @notice get the total policy count
+     * @return total policy count
+     */
     function getTotalPolicyCount() public view returns (uint256) {
         return Total_Policies;
     }
@@ -358,7 +428,7 @@ contract PolicyFlow is ChainlinkClient {
         request.addInt("times", timesAmount);
 
         // Sends the request
-        bytes32 requestId = sendChainlinkRequestTo(oracle, request, fee);
+        bytes32 requestId = sendChainlinkRequestTo(oracleAddress, request, fee);
         requestList[requestId] = policyId;
         return requestId;
     }

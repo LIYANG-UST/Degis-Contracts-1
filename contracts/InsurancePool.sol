@@ -214,6 +214,13 @@ contract InsurancePool {
     }
 
     /**
+     * @notice view the pool's total available capacity
+     */
+    function getCurrentStakingBalance() public view returns (uint256) {
+        return currentStakingBalance;
+    }
+
+    /**
      * @notice get a user's stake amount in the pool
      * @param _userAddress: the user's address
      */
@@ -274,14 +281,15 @@ contract InsurancePool {
             return;
         }
         if (currentStakingBalance == 0) {
+            poolInfo.lastRewardBlock = block.number;
             return;
         }
         uint256 blocks = block.number - poolInfo.lastRewardBlock;
         uint256 degisReward = poolInfo.degisPerBlock * blocks;
         DEGIS.mint(address(this), degisReward);
 
-        poolInfo.accDegisPerShare += degisReward.mul(1e18).div(
-            currentStakingBalance
+        poolInfo.accDegisPerShare = poolInfo.accDegisPerShare.add(
+            degisReward.mul(1e18).div(currentStakingBalance)
         );
         poolInfo.lastRewardBlock = block.number;
     }
