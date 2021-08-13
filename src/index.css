@@ -9,7 +9,8 @@
 #userpart,
 #lppart,
 #poolpart,
-#stakepart {
+#stakepart,
+#oraclepart {
     width: 1000px;
     margin: 0 auto;
     padding: 20px 40px 40px 40px;

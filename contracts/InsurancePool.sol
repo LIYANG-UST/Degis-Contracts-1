@@ -194,7 +194,7 @@ contract InsurancePool {
 
         if (block.number > poolInfo.lastRewardBlock) {
             uint256 blocks = block.number - poolInfo.lastRewardBlock;
-            uint256 degisReward = blocks.mul(poolInfo.degisPerBlock);
+            uint256 degisReward = poolInfo.degisPerBlock * blocks;
 
             accDegisPerShare = accDegisPerShare.add(degisReward).mul(1e18).div(
                 currentStakingBalance
@@ -319,6 +319,7 @@ contract InsurancePool {
         lockedBalance += _payoff;
         activePremiums += _premium;
         availableCapacity -= _payoff;
+
         lockedRatio = FixedPoint.uq112x112(
             uint224(lockedBalance / currentStakingBalance)
         );
@@ -335,6 +336,7 @@ contract InsurancePool {
     function stake(address _userAddress, uint256 _amount) public {
         UserInfo storage user = userInfo[_userAddress];
         updateDegisReward();
+
         if (user.assetBalance > 0) {
             uint256 pending = user
                 .assetBalance
@@ -482,6 +484,22 @@ contract InsurancePool {
                 }
             } else break;
         }
+    }
+
+    function harvestDegisReward(address _userAddress) public {
+        UserInfo storage user = userInfo[_userAddress];
+        updateDegisReward();
+        uint256 pending = user
+            .assetBalance
+            .mul(poolInfo.accDegisPerShare)
+            .div(1e18)
+            .sub(user.rewardDebt);
+        safeDegisTransfer(msg.sender, pending);
+        poolInfo.lastRewardBlock = block.number;
+
+        user.rewardDebt = user.assetBalance.mul(poolInfo.accDegisPerShare).div(
+            1e18
+        );
     }
 
     function payClaim(
