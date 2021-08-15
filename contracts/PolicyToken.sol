@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 // import "./libraries/NFTInfo.sol";
 import "./interfaces/IPolicyFlow.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "./libraries/ToStrings.sol";
 
 contract PolicyToken is ERC721 {
     address public owner;
@@ -31,7 +32,7 @@ contract PolicyToken is ERC721 {
 
     IPolicyFlow policyFlow;
 
-    uint256 _nextId;
+    uint256 public _nextId;
 
     constructor(IPolicyFlow _policyFlow) ERC721("DegisPolicyToken", "DEGISPT") {
         _nextId = 1;

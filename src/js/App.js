@@ -1,8 +1,7 @@
-
-
 const usdcadd_rinkeby = "0x6e95Fc19611cebD936B22Fd1A15D53d98bb31dAF";
 // const pool_address = '0xDcB6B0D63b4A6011dF2239A070fdcf65c67f366A';
 const policy_token_address = "0x2aCE3BdE730B1fF003cDa21aeeA1Db33b0F04ffC";
+const degis_token = "0xa5DaDD05F67996EC2428d07f52C9D3852F18c759";
 
 //const Web3 = require('web3');
 App = {
@@ -74,6 +73,7 @@ App = {
             var DegisTokenArtifact = data;
             App.contracts.DegisToken = TruffleContract(DegisTokenArtifact);
             App.contracts.DegisToken.setProvider(App.web3Provider);
+            console.log('init degis token \n')
         });
         $.getJSON("MockUSD.json", function (data) {
             var usdcArtifact = data;
@@ -103,6 +103,12 @@ App = {
             App.contracts.GetFlightData.setProvider(App.web3Provider);
             console.log('init get flight data')
         });
+        $.getJSON("LinkTokenInterface.json", function (data) {
+            var LinkTokenArtifact = data;
+            App.contracts.LinkTokenInterface = TruffleContract(LinkTokenArtifact);
+            App.contracts.LinkTokenInterface.setProvider(App.web3Provider);
+            console.log('init get flight data')
+        });
 
         //调用事件
         return App.bindEvents();
@@ -122,6 +128,7 @@ App = {
         $(document).on('click', '.btn-totalpolicy', App.showTotalPolicy);
         $(document).on('click', '.btn-updatepolicyflow', App.updateFlow);
         $(document).on('click', '.btn-updatepooladdress', App.updatePoolAddress);
+        $(document).on('click', '.btn-oracle', App.requestOracle);
     },
 
     updatePoolAddress: function () {
@@ -140,20 +147,22 @@ App = {
     },
 
     //合约的mint方法
-    mint: function () {
+    mint: async function () {
         //deployed得到合约的实例，通过then的方式回调拿到实例
-        var DegisInstance;
+
         console.log("-------------Mint Degis Token---------------");
-        App.contracts.DegisToken.deployed().then(function (instance) {
-            DegisInstance = instance;
-            let mintaddress = document.getElementById("minter").value;
-            let mint_num = document.getElementById("mint_number").value;
-            mint_num = web3.utils.toWei(mint_num, 'ether');
-            console.log(typeof (mintaddress), typeof (mint_num));
-            return DegisInstance.mint(mintaddress, web3.utils.toBN(mint_num), { from: App.account });
-        }).catch(function (err) { //get方法执行失败打印错误
-            console.log(err.message);
-        });
+
+        const dt = await App.contracts.DegisToken.at(degis_token);
+        console.log("degis token address", dt.address)
+        const minter = await dt.passMinterRole(App.pool_address, { from: App.account });
+        console.log("\n Degis Minter Address:", minter.logs[0].args[1]);
+
+
+        let mintaddress = document.getElementById("minter").value;
+        let mint_num = document.getElementById("mint_number").value;
+        mint_num = web3.utils.toWei(mint_num, 'ether');
+
+        // await dt.mint(mintaddress, web3.utils.toBN(mint_num), { from: App.pool_address });
 
     },
 
@@ -208,6 +217,10 @@ App = {
 
         });
 
+        App.contracts.PolicyFlow.deployed().then(function (instance) {
+            instance.getResponse({ from: App.account }).then(value => console.log("response value", value));
+        });
+
     },
 
     updateFlow: function () {
@@ -221,27 +234,29 @@ App = {
         })
     },
 
-    showLPInfo: function () {
+    showLPInfo: async function () {
         console.log('\n --------------Show LP info----------------');
-        App.contracts.InsurancePool.deployed().then(function (instance) {
-            PoolInstance = instance;
-            PoolInstance.getStakeAmount(App.account, { from: App.account }).then(value => {
-                // console.log(value)
-                console.log("your stake amount:", parseInt(value) / 10 ** 18)
-                var obj = document.getElementById("lpinfo-show");
-                obj.innerText = ("stake amount:  " + parseInt(value) / 10 ** 18);
-            });
-            PoolInstance.getUnlockedfor(App.account, { from: App.account }).then(value => {
-                console.log("your unlocked amount:", parseInt(value) / 10 ** 18);
-                var obj = document.getElementById("lpinfo-show");
-                obj.innerText += ("\n unlocked amount:  " + parseInt(value) / 10 ** 18);
-            }
-            );
-            PoolInstance.pendingDegis(App.account, { from: App.account }).then(value => {
-                console.log("pending degis:", parseInt(value))
-            })
-
+        const ip = await App.contracts.InsurancePool.deployed()
+        console.log(ip.address)
+        await ip.getStakeAmount(App.account, { from: App.account }).then(value => {
+            // console.log(value)
+            console.log("your stake amount:", parseInt(value) / 10 ** 18)
+            var obj = document.getElementById("lpinfo-show");
+            obj.innerText = ("stake amount:  " + parseInt(value) / 10 ** 18);
         });
+
+        await ip.getUnlockedfor(App.account, { from: App.account }).then(value => {
+            console.log("your unlocked amount:", parseInt(value) / 10 ** 18);
+            var obj = document.getElementById("lpinfo-show");
+            obj.innerText += ("\n unlocked amount:  " + parseInt(value) / 10 ** 18);
+        }
+        );
+
+        const pendingDegis = await ip.pendingDegis(App.account)
+        console.log("pending degis:", parseInt(pendingDegis) / 10 ** 18)
+
+
+
     },
 
     getRandomness: function () {
@@ -312,28 +327,26 @@ App = {
         })
     },
 
-    showTotalPolicy: function () {
+    showTotalPolicy: async function () {
         console.log('\n ------------Showing total policies-------------');
-        App.contracts.PolicyFlow.deployed().then(function (instance) {
-            instance.getTotalPolicyCount().then(value => {
-                console.log("Total policy amount in the pool:", parseInt(value));
-                for (let i = 0; i < parseInt(value); i++) {
-                    instance.getPolicyIdByCount(i, { from: App.account }).then(value => {
-                        console.log("policyId", i + 1, ":", value);
-                    })
-                    instance.getPolicyInfoByCount(i, { from: App.account }).then(value => {
-                        console.log(value)
-                    })
-                    instance.bytes32ToStr('0x657468657265756d000000000000000000000000000000000000000000000000', { from: App.account }).then(value => {
-                        console.log(value)
-                    })
-                }
+        const pf = await App.contracts.PolicyFlow.deployed()
 
+        const total_policy = await pf.getTotalPolicyCount()
+        console.log("Total policy amount in the pool:", parseInt(total_policy));
+        for (let i = 0; i < parseInt(total_policy); i++) {
+            await pf.getPolicyIdByCount(i, { from: App.account }).then(value => {
+                console.log("policyId", i, ":", value);
             })
-        })
+            await pf.getPolicyInfoByCount(i, { from: App.account }).then(value => {
+                console.log(value)
+            })
+        }
+
+
+
     },
 
-    deposit: function () {
+    deposit: async function () {
         var PoolInstance;
         var USDCInstance;
         console.log('\n -------------depositing-----------------');
@@ -344,20 +357,18 @@ App = {
         f_amount = web3.utils.toWei(deposit_amount, 'ether');
         console.log("deposit amount in wei:", f_amount)
 
-        App.contracts.USDC.at(usdcadd_rinkeby).then(function (instance) {
-            USDCInstance = instance;
-            USDCInstance.approve(App.pool_address, web3.utils.toBN(f_amount), { from: App.account });
-        });
+        const usdc = await App.contracts.USDC.at(usdcadd_rinkeby)
+
+        await usdc.approve(App.pool_address, web3.utils.toBN(f_amount), { from: App.account });
+
         // .catch(function (err) { //get方法执行失败打印错误
         //     console.log(err.message);
         // }).then(
 
-        App.contracts.InsurancePool.deployed().then(function (instance) {
-            PoolInstance = instance;
-            PoolInstance.stake(App.account, web3.utils.toBN(f_amount), { from: App.account });
-        }).catch(function (err) { //get方法执行失败打印错误
-            console.log(err.message);
-        });
+        const pool = await App.contracts.InsurancePool.deployed();
+
+        await pool.stake(App.account, web3.utils.toBN(f_amount), { from: App.account });
+
 
         //var USDCInstance = new web3.eth.Contract(App.contracts.USDC, usdcadd_rinkeby);
 
@@ -412,7 +423,7 @@ App = {
 
 
     showUserPolicy: function () {
-        console.log('----------------showing user policy--------------');
+        console.log('\n----------------showing user policy--------------\n');
         var PolicyFlowInstance;
 
         App.contracts.PolicyFlow.deployed().then(function (instance) {
@@ -436,7 +447,42 @@ App = {
         }).catch(function (err) {
             console.log(err.message);
         })
+        App.contracts.PolicyFlow.deployed().then(function (instance) {
+            instance.bytesToUint("0x3232322e39350000000000000000000000000000000000000000000000000000", { from: App.account }).then(value => {
+                console.log(parseInt(value));
+            })
+        })
+
+    },
+
+    requestOracle: async function () {
+        console.log("\n------------------Request Oracle-----------------------\n")
+        flight_number = document.getElementById('flightNumber').value;
+        console.log("flight number is:", flight_number);
+
+        policy_order = document.getElementById('policyOrder').value;
+        console.log("policy order is:", policy_order);
+
+        date = document.getElementById('date').value;
+        console.log("date is:", date);
+
+        const ps = await App.contracts.PolicyFlow.deployed()
+        console.log("policy flow address:", ps.address)
+
+        const linkAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
+        const linkToken = await App.contracts.LinkTokenInterface.at(linkAddress)
+        const payment = '2000000000000000000'
+        const tx1 = await linkToken.transfer(ps.address, payment, { from: App.account })
+        console.log(tx1.tx)
+
+        const req = await ps.calculateFlightStatus(parseInt(policy_order),
+            flight_number,
+            date,
+            "data.0.depart_delay",
+            true, { from: App.account });
+        console.log(req)
     }
+
 
 
 

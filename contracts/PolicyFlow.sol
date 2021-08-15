@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 // import "./interfaces/IPolicyFlow.sol";
 import "./libraries/Policy.sol";
+import "./libraries/ToStrings.sol";
 import "./interfaces/IInsurancePool.sol";
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -11,15 +12,24 @@ contract PolicyFlow is ChainlinkClient {
     using Chainlink for Chainlink.Request;
     using Strings for uint256;
 
-    uint256 volume; // A test variable
+    bytes32 public response; // A test variable
     uint256 fee;
-    address private oracle;
+    string constant FLIGHT_STATUS_URL =
+        "http://39.101.132.228:8000/flight_info";
+    address private oracleAddress;
     bytes32 private jobId;
 
+    enum RequestStatus {
+        INIT,
+        SENT,
+        COMPLETED
+    }
+
+    mapping(bytes32 => uint256) requestList; // requestId => total order
+    mapping(uint256 => bytes32) resultList; // total order => delay result
     address public owner;
     IInsurancePool insurancePool;
     IPolicyToken policyToken;
-    address public oracleAddress;
 
     // Minimum time before departure for applying
     uint256 public constant MIN_TIME_BEFORE_DEPARTURE = 24 hours;
@@ -33,16 +43,22 @@ contract PolicyFlow is ChainlinkClient {
         CLAIMED
     }
 
-    struct policyInfo {
-        uint256 productId; // 0: flight delay
-        address buyerAddress;
-        uint256 totalOrder;
-        bytes32 policyId; // unique ID for this policy
+    struct PolicyInfo {
+        uint256 productId; // 0: flight delay 1,2,3: future products
+        address buyerAddress; // buyer's address
+        uint256 totalOrder; // total order: 0 - N (unique for each policy)(used to link)
+        bytes32 policyId; // unique ID (bytes32) for this policy
         uint256 premium;
         uint256 payoff;
-        uint256 expiryDate;
+        uint256 purchaseDate; // Unix timestamp
+        uint256 expiryDate; // Unix timestamp
         PolicyStatus status;
+        // Oracle Related
+        bool isUsed;
+        uint256 delayResult; // [400:cancelled] [0: on time] [0 ~ 240: delay time] [404: initial]
     }
+
+    // Events list
     event newPolicyApplication(bytes32 _policyID, address);
     event PolicySold(bytes32 _policyID, address);
     event PolicyDeclined(bytes32 _policyID, address);
@@ -50,29 +66,34 @@ contract PolicyFlow is ChainlinkClient {
     event PolicyExpired(bytes32 _policyID, address);
     event FulfilledOracleRequest(bytes32 _policyId, bytes32 _requestId);
 
-    mapping(bytes32 => policyInfo) policyList;
-    mapping(uint256 => bytes32) policyList2;
+    // Mappings
+    mapping(bytes32 => PolicyInfo) policyList;
+    mapping(uint256 => bytes32) policyOrderList;
 
-    mapping(bytes32 => bytes32) requestList;
-
-    mapping(address => uint256[]) userPolicy;
+    mapping(address => uint256[]) userPolicy; // uint256[]: those totalOrders of a user
     mapping(address => uint256) userPolicyCount;
 
+    // Constructor Function
     constructor(
         IInsurancePool _insurancePool,
         IPolicyToken _policyToken,
         address _oracleAddress
     ) {
+        // set owner address
         owner = msg.sender;
+
+        // set two interfaces' addresses
         insurancePool = _insurancePool;
         policyToken = _policyToken;
-        oracleAddress = _oracleAddress;
-        Total_Policies = 0;
 
+        // set oracle
+        oracleAddress = _oracleAddress;
+        jobId = "8cd6d6cad1ed43e99829746a6da7fb59";
         setPublicChainlinkToken();
-        oracle = 0x7AFe1118Ea78C1eae84ca8feE5C65Bc76CcF879e;
-        jobId = "b0bde308282843d49a3a8d2dd2464af1";
-        fee = 0.1 * 10**18;
+        fee = 1 * 10**18;
+
+        // Initialized the count
+        Total_Policies = 0;
     }
 
     modifier onlyOracle() {
@@ -81,6 +102,48 @@ contract PolicyFlow is ChainlinkClient {
             "only the oracle can call this function"
         );
         _;
+    }
+    modifier onlyOwner() {
+        require(msg.sender == owner, "only the owner can call this function");
+        _;
+    }
+
+    /**
+     * @notice change the job id
+     * @param _jobId: new job Id
+     */
+    function changeJobId(bytes32 _jobId) public onlyOwner {
+        jobId = _jobId;
+    }
+
+    /**
+     * @notice change the oracle fee
+     * @param _fee: new fee
+     */
+    function changeFee(uint256 _fee) public onlyOwner {
+        fee = _fee;
+    }
+
+    /**
+     * @notice change the oracle address
+     * @param _oracleAddress: new oracle address
+     */
+    function changeOrcaleAddress(address _oracleAddress) public onlyOwner {
+        oracleAddress = _oracleAddress;
+    }
+
+    /**
+     * @notice show the current job id
+     */
+    function getJobId() public view onlyOwner returns (bytes32) {
+        return jobId;
+    }
+
+    /**
+     * @notice show the current oracle address
+     */
+    function getOrcaleAddress() public view onlyOwner returns (address) {
+        return oracleAddress;
     }
 
     /**
@@ -96,32 +159,39 @@ contract PolicyFlow is ChainlinkClient {
         require(userPolicyCount[_userAddress] > 0, "no policy for this user");
 
         uint256 policyCount = userPolicyCount[_userAddress];
-        string memory result = "RESULT:";
+        string memory result = " ";
         for (uint256 i = 0; i < policyCount; i++) {
             uint256 policyOrder = userPolicy[_userAddress][i];
 
-            bytes32 policyid = policyList2[policyOrder];
+            bytes32 policyid = policyOrderList[policyOrder];
             // string memory s_policyId = bytes32ToStr(policyid);
             uint256 status = uint256(policyList[policyid].status);
+            string memory isUsed = policyList[policyid].isUsed
+                ? "used"
+                : "not used";
             result = string(
                 abi.encodePacked(
                     result,
                     string(
                         abi.encodePacked(
-                            // "{Policy",
-                            // i.toString(),
-                            "{PolicyId: ",
+                            "\nPolicy",
+                            i.toString(),
+                            ": \n{PolicyId: ",
                             byToString(policyid),
-                            ", ProductId: ",
+                            ", \nProductId: ",
                             policyList[policyid].productId.toString(),
-                            ", buyerAddress: ",
+                            ", \nbuyerAddress: ",
                             addressToString(policyList[policyid].buyerAddress),
-                            ", premium: ",
+                            ", \npremium: ",
                             (policyList[policyid].premium / 10**18).toString(),
-                            ", payoff: ",
+                            ", \npayoff: ",
                             (policyList[policyid].payoff / 10**18).toString(),
-                            ", status: ",
+                            ", \nstatus: ",
                             status.toString(),
+                            ", \nisUsed: ",
+                            isUsed,
+                            ", \ndelay results: ",
+                            policyList[policyid].delayResult.toString(),
                             "}"
                         )
                     )
@@ -131,34 +201,58 @@ contract PolicyFlow is ChainlinkClient {
         return result;
     }
 
-    function addressToString(address addr)
+    /**
+     * @notice transfer an address to a string
+     * @param _addr: input address
+     * @return string form of _addr
+     */
+    function addressToString(address _addr)
         internal
         pure
         returns (string memory)
     {
-        return (uint256(uint160(addr))).toHexString(32);
+        return (uint256(uint160(_addr))).toHexString(20);
     }
 
+    /**
+     * @notice transfer bytes32 to string (not change the content)
+     * @param _bytes: input bytes32
+     * @return string form of _bytes
+     */
     function byToString(bytes32 _bytes) internal pure returns (string memory) {
-        return (uint256(_bytes)).toHexString(20);
+        return (uint256(_bytes)).toHexString(32);
     }
 
-    function bytes32ToString(bytes32 _bytes32)
+    /**
+     * @notice transfer bytes32 to string (human-readable form)
+     * @param _bytes: input bytes32
+     * @return string form of _bytes
+     */
+    function bytes32ToString(bytes32 _bytes)
         public
         pure
         returns (string memory)
     {
         bytes memory bytesArray = new bytes(32);
         for (uint256 i; i < 32; i++) {
-            bytesArray[i] = _bytes32[i];
+            bytesArray[i] = _bytes[i];
         }
         return string(bytesArray);
     }
 
+    /**
+     * @notice get the policyId (bytes32) from its count/order
+     * @param _count: total count
+     * @return policyId (bytes32)
+     */
     function getPolicyIdByCount(uint256 _count) public view returns (bytes32) {
-        return policyList2[_count];
+        return policyOrderList[_count];
     }
 
+    /**
+     * @notice get the policyInfo from its count/order
+     * @param _count: total count
+     */
     function getPolicyInfoByCount(uint256 _count)
         public
         view
@@ -171,7 +265,7 @@ contract PolicyFlow is ChainlinkClient {
             uint256 _expiryDate
         )
     {
-        bytes32 policyId = policyList2[_count];
+        bytes32 policyId = policyOrderList[_count];
         return (
             policyId,
             policyList[policyId].productId,
@@ -182,12 +276,16 @@ contract PolicyFlow is ChainlinkClient {
         );
     }
 
+    /**
+     * @notice get the total policy count
+     * @return total policy count
+     */
     function getTotalPolicyCount() public view returns (uint256) {
         return Total_Policies;
     }
 
-    function getVolume() public view returns (uint256) {
-        return volume;
+    function getResponse() public view returns (bytes32) {
+        return response;
     }
 
     function getUserPolicyCount(address _userAddress)
@@ -206,16 +304,6 @@ contract PolicyFlow is ChainlinkClient {
         return policyList[_policyId].buyerAddress;
     }
 
-    function string2bytes(string memory _in)
-        internal
-        pure
-        returns (bytes32 result)
-    {
-        assembly {
-            result := mload(add(_in, 32))
-        }
-    }
-
     /**
      * @notice start a new policy application
      * @param _userAddress: user's address (buyer)
@@ -230,7 +318,7 @@ contract PolicyFlow is ChainlinkClient {
         uint256 _premium,
         uint256 _payoff,
         uint256 _expiryDate
-    ) public returns (string memory) {
+    ) public returns (bytes32 _policyId) {
         // Check the buying time not too close to the departure time
         require(
             _expiryDate >= block.timestamp + MIN_TIME_BEFORE_DEPARTURE,
@@ -245,27 +333,35 @@ contract PolicyFlow is ChainlinkClient {
                 Total_Policies
             )
         );
+        uint256 TEMP_purchaseDate = block.timestamp;
         // Generate the policy
-        policyList[TEMP_policyId] = policyInfo(
+        policyList[TEMP_policyId] = PolicyInfo(
             _productId,
             _userAddress,
             Total_Policies,
             TEMP_policyId,
             _premium,
             _payoff,
+            TEMP_purchaseDate,
             _expiryDate,
-            PolicyStatus.INI
+            PolicyStatus.INI,
+            false,
+            404
         );
+
         userPolicy[_userAddress].push(Total_Policies); //store the policyID with userAddress
         userPolicyCount[_userAddress] += 1;
 
-        policyList2[Total_Policies] = TEMP_policyId;
+        policyOrderList[Total_Policies] = TEMP_policyId;
         Total_Policies += 1;
+
         //string memory policyId_RETURN = bytesToString(TEMP_policyId);
         emit newPolicyApplication(TEMP_policyId, _userAddress);
+
         // Check the policy with the insurance pool status
         policyCheck(_premium, _payoff, _userAddress, TEMP_policyId);
-        return string(abi.encodePacked(TEMP_policyId));
+
+        return TEMP_policyId;
     }
 
     /**
@@ -331,53 +427,86 @@ contract PolicyFlow is ChainlinkClient {
         emit PolicyClaimed(_policyId, _userAddress);
     }
 
-    function policyFinalCheck(uint256 _policyOrder)
-        public
-        returns (bytes32 _requestId)
-    {
-        // request final status from chainlink, return requestId
-        // Set the callback function as "policyStatusCallback"
-        bytes32 policyId = policyList2[_policyOrder];
+    // /**
+    //  * @notice Check the final delay status of the flight
+    //  * @param _policyOrder: the unique policy total order
+    //  */
+    // function policyFinalCheck(uint256 _policyOrder)
+    //     public
+    //     returns (bytes32 _requestId)
+    // {
+    //     // request final status from chainlink, return requestId
+    //     // Set the callback function as "policyStatusCallback"
+    //     bytes32 policyId = policyOrderList[_policyOrder];
 
-        Chainlink.Request memory request = buildChainlinkRequest(
-            jobId,
-            address(this),
-            this.fulfill.selector
-        );
+    //     Chainlink.Request memory request = buildChainlinkRequest(
+    //         jobId,
+    //         address(this),
+    //         this.fulfill.selector
+    //     );
 
-        // Set the URL to perform the GET request on
-        request.add(
-            "get",
-            "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD"
-        );
+    //     // Set the URL to perform the GET request on
+    //     request.add(
+    //         "get",
+    //         "https://api.coingecko.com/api/v3/simple/price?ids=chainlink&vs_currencies=USD"
+    //     );
 
-        request.add("path", "RAW.ETH.USD.VOLUME24HOUR");
+    //     request.add("path", "chainlink.usd");
 
-        // Multiply the result by 1000000000000000000 to remove decimals
-        int256 timesAmount = 10**18;
-        request.addInt("times", timesAmount);
+    //     // Multiply the result by 1000000000000000000 to remove decimals
+    //     int256 timesAmount = 10**2;
+    //     request.addInt("times", timesAmount);
 
-        // Sends the request
-        bytes32 requestId = sendChainlinkRequestTo(oracle, request, fee);
-        requestList[requestId] = policyId;
-        return requestId;
-    }
+    //     // Sends the request
+    //     bytes32 requestId = sendChainlinkRequestTo(oracleAddress, request, fee);
+    //     requestList[requestId] = policyId;
+    //     return requestId;
+    // }
 
-    function fulfill(bytes32 _requestId, uint256 _volume)
+    function fulfill(bytes32 _requestId, bytes32 _data)
         public
         recordChainlinkFulfillment(_requestId)
     {
-        volume = _volume;
-        bytes32 policyId = requestList[_requestId];
-        if (volume % 2 == 0) {
+        uint256 volume = bytesToUint(_data);
+        response = _data;
+
+        uint256 order = requestList[_requestId];
+        bytes32 policyId = policyOrderList[order];
+        policyList[policyId].delayResult = volume;
+
+        if (volume == 0) {
             policyExpired(
                 policyList[policyId].premium,
                 policyList[policyId].payoff,
                 policyList[policyId].buyerAddress,
                 policyId
             );
-        } else {
+        } else if (volume <= 240) {
+            uint256 payoff = (volume**2) / (40);
+            if (payoff < policyList[policyId].payoff) {
+                policyClaimed(
+                    policyList[policyId].premium,
+                    payoff,
+                    policyList[policyId].buyerAddress,
+                    policyId
+                );
+            } else {
+                policyClaimed(
+                    policyList[policyId].premium,
+                    policyList[policyId].payoff,
+                    policyList[policyId].buyerAddress,
+                    policyId
+                );
+            }
+        } else if (volume == 400) {
             policyClaimed(
+                policyList[policyId].premium,
+                policyList[policyId].payoff / 4,
+                policyList[policyId].buyerAddress,
+                policyId
+            );
+        } else {
+            policyExpired(
                 policyList[policyId].premium,
                 policyList[policyId].payoff,
                 policyList[policyId].buyerAddress,
@@ -388,28 +517,89 @@ contract PolicyFlow is ChainlinkClient {
         emit FulfilledOracleRequest(policyId, _requestId);
     }
 
-    function policyStatusCallback(bytes32 _requestId, bytes32 _response)
-        public
-        onlyOracle
-    {
-        // Take different actions with the _response
-        // ['canclled', 'delayed', 'delaytime'] bool, bool, uint256
+    /** @notice calculate the flight status
+     *  @param _policyOrder The total order of the policy
+     *  @param _flightNumber The flight number
+     *  @param _date The flight date
+     *  @param _path Which data in json needs to get
+     *  @param _forceUpdate Owner can force to update
+     */
+    function calculateFlightStatus(
+        uint256 _policyOrder,
+        string memory _flightNumber,
+        string memory _date,
+        string memory _path,
+        bool _forceUpdate
+    ) public {
+        bytes32 _policyId = policyOrderList[_policyOrder];
+        require(
+            (!policyList[_policyId].isUsed) ||
+                (_forceUpdate && (msg.sender == owner)),
+            "The policy has been final checked, or you need to force update"
+        );
+
+        policyList[_policyId].isUsed = true;
+
+        string memory _url = string(
+            abi.encodePacked(
+                FLIGHT_STATUS_URL,
+                "/flight_no=",
+                _flightNumber,
+                "/date=",
+                _date
+            )
+        );
+        bytes32 requestId = createRequestTo(
+            oracleAddress,
+            jobId,
+            fee,
+            _url,
+            _path,
+            1
+        );
+        requestList[requestId] = _policyOrder;
     }
 
-    function bytesToString(bytes32 _bytes) internal returns (string memory) {
-        bytes memory bytesString = new bytes(32);
-        uint256 charCount = 0;
-        for (uint256 j = 0; j < 32; j++) {
-            bytes1 char = bytes1(bytes32(uint256(_bytes) * 2**(8 * j)));
-            if (char != 0) {
-                bytesString[charCount] = char;
-                charCount++;
+    /**
+     * @notice Creates a request to the specified Oracle contract address
+     * @dev This function ignores the stored Oracle contract address and
+     * will instead send the request to the address specified
+     * @param _oracle The Oracle contract address to send the request to
+     * @param _jobId The bytes32 JobID to be executed
+     * @param _url The URL to fetch data from
+     * @param _path The dot-delimited path to parse of the response
+     * @param _times The number to multiply the result by
+     */
+    function createRequestTo(
+        address _oracle,
+        bytes32 _jobId,
+        uint256 _payment,
+        string memory _url,
+        string memory _path,
+        int256 _times
+    ) private returns (bytes32 requestId) {
+        Chainlink.Request memory req = buildChainlinkRequest(
+            _jobId,
+            address(this),
+            this.fulfill.selector
+        );
+        req.add("url", _url);
+        req.add("path", _path);
+        req.addInt("times", _times);
+        requestId = sendChainlinkRequestTo(_oracle, req, _payment);
+    }
+
+    function bytesToUint(bytes32 s) public pure returns (uint256) {
+        bytes memory b = new bytes(32);
+        for (uint256 i; i < 32; i++) {
+            b[i] = s[i];
+        }
+        uint256 result = 0;
+        for (uint256 i = 0; i < b.length; i++) {
+            if (uint8(b[i]) >= 48 && uint8(b[i]) <= 57) {
+                result = result * 10 + (uint8(b[i]) - 48);
             }
         }
-        bytes memory bytesStringTrimmed = new bytes(charCount);
-        for (uint256 j = 0; j < charCount; j++) {
-            bytesStringTrimmed[j] = bytesString[j];
-        }
-        return string(bytesStringTrimmed);
+        return result;
     }
 }

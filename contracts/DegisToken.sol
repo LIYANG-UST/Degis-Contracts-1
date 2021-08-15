@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract DegisToken is ERC20 {
     address public minter;
+    address public owner;
     event MinterChanged(address indexed from, address to);
 
     /**
@@ -12,13 +13,7 @@ contract DegisToken is ERC20 {
      */
     constructor() payable ERC20("DegisToken", "DEGIS") {
         minter = msg.sender;
-    }
-
-    /**
-     * @notice Only for frontend test
-     */
-    function AddTen(uint256 _testNum) public pure returns (uint256) {
-        return _testNum + 10;
+        owner = msg.sender;
     }
 
     /**
@@ -27,7 +22,7 @@ contract DegisToken is ERC20 {
      */
     function passMinterRole(address _newMinter) public returns (bool) {
         require(
-            msg.sender == minter,
+            msg.sender == owner,
             "Error! only the owner can change the minter role"
         );
         minter = _newMinter;
