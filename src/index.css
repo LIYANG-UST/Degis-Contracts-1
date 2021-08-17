@@ -10,7 +10,8 @@
 #lppart,
 #poolpart,
 #stakepart,
-#oraclepart {
+#oraclepart,
+#calcpart {
     width: 1000px;
     margin: 0 auto;
     padding: 20px 40px 40px 40px;

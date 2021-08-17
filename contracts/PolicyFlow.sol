@@ -12,7 +12,7 @@ contract PolicyFlow is ChainlinkClient {
     using Chainlink for Chainlink.Request;
     using Strings for uint256;
 
-    bytes32 public response; // A test variable
+    uint256 public response; // A test variable
     uint256 fee;
     string constant FLIGHT_STATUS_URL =
         "http://39.101.132.228:8000/flight_info";
@@ -51,10 +51,10 @@ contract PolicyFlow is ChainlinkClient {
         uint256 premium;
         uint256 payoff;
         uint256 purchaseDate; // Unix timestamp
-        uint256 expiryDate; // Unix timestamp
-        PolicyStatus status;
+        uint256 departureDate; // Unix timestamp
+        PolicyStatus status; // INI, SOLD, DECLINED, EXPIRED, CLAIMED
         // Oracle Related
-        bool isUsed;
+        bool isUsed; // Whether has call the oracle
         uint256 delayResult; // [400:cancelled] [0: on time] [0 ~ 240: delay time] [404: initial]
     }
 
@@ -262,7 +262,7 @@ contract PolicyFlow is ChainlinkClient {
             address _owner,
             uint256 _premium,
             uint256 _payoff,
-            uint256 _expiryDate
+            uint256 _departureDate
         )
     {
         bytes32 policyId = policyOrderList[_count];
@@ -272,7 +272,7 @@ contract PolicyFlow is ChainlinkClient {
             policyList[policyId].buyerAddress,
             policyList[policyId].premium,
             policyList[policyId].payoff,
-            policyList[policyId].expiryDate
+            policyList[policyId].departureDate
         );
     }
 
@@ -284,7 +284,7 @@ contract PolicyFlow is ChainlinkClient {
         return Total_Policies;
     }
 
-    function getResponse() public view returns (bytes32) {
+    function getResponse() public view returns (uint256) {
         return response;
     }
 
@@ -310,18 +310,18 @@ contract PolicyFlow is ChainlinkClient {
      * @param _productId: ID of the purchased product (0: flightdelay; 1,2,3...: others) (different products)
      * @param _premium: premium of this policy (decimal 18)
      * @param _payoff: payoff of this policy (decimal 18)
-     * @param _expiryDate: expiry date of this policy (unix timestamp)
+     * @param _departureDate: expiry date of this policy (unix timestamp)
      */
     function newApplication(
         address _userAddress,
         uint256 _productId,
         uint256 _premium,
         uint256 _payoff,
-        uint256 _expiryDate
+        uint256 _departureDate
     ) public returns (bytes32 _policyId) {
         // Check the buying time not too close to the departure time
         require(
-            _expiryDate >= block.timestamp + MIN_TIME_BEFORE_DEPARTURE,
+            _departureDate >= block.timestamp + MIN_TIME_BEFORE_DEPARTURE,
             "ERROR::TIME_TO_DEPARTURE_TOO_SMALL"
         );
         // Generate the unique policyId
@@ -329,7 +329,7 @@ contract PolicyFlow is ChainlinkClient {
             abi.encodePacked(
                 _userAddress,
                 _productId,
-                _expiryDate,
+                _departureDate,
                 Total_Policies
             )
         );
@@ -343,7 +343,7 @@ contract PolicyFlow is ChainlinkClient {
             _premium,
             _payoff,
             TEMP_purchaseDate,
-            _expiryDate,
+            _departureDate,
             PolicyStatus.INI,
             false,
             404
@@ -385,6 +385,7 @@ contract PolicyFlow is ChainlinkClient {
         if (_isAccepted) {
             policyList[_policyId].status = PolicyStatus.SOLD;
             emit PolicySold(_policyId, _userAddress);
+
             policyToken.mintPolicyToken(_userAddress);
         } else {
             policyList[_policyId].status = PolicyStatus.DECLINED;
@@ -463,26 +464,25 @@ contract PolicyFlow is ChainlinkClient {
     //     return requestId;
     // }
 
-    function fulfill(bytes32 _requestId, bytes32 _data)
+    function fulfill(bytes32 _requestId, uint256 _data)
         public
         recordChainlinkFulfillment(_requestId)
     {
-        uint256 volume = bytesToUint(_data);
         response = _data;
 
         uint256 order = requestList[_requestId];
         bytes32 policyId = policyOrderList[order];
-        policyList[policyId].delayResult = volume;
+        policyList[policyId].delayResult = _data;
 
-        if (volume == 0) {
+        if (_data == 0) {
             policyExpired(
                 policyList[policyId].premium,
                 policyList[policyId].payoff,
                 policyList[policyId].buyerAddress,
                 policyId
             );
-        } else if (volume <= 240) {
-            uint256 payoff = (volume**2) / (40);
+        } else if (_data <= 240) {
+            uint256 payoff = (_data**2) / (40);
             if (payoff < policyList[policyId].payoff) {
                 policyClaimed(
                     policyList[policyId].premium,
@@ -498,7 +498,7 @@ contract PolicyFlow is ChainlinkClient {
                     policyId
                 );
             }
-        } else if (volume == 400) {
+        } else if (_data == 400) {
             policyClaimed(
                 policyList[policyId].premium,
                 policyList[policyId].payoff / 4,
@@ -545,7 +545,7 @@ contract PolicyFlow is ChainlinkClient {
                 FLIGHT_STATUS_URL,
                 "/flight_no=",
                 _flightNumber,
-                "/date=",
+                "/timestamp=",
                 _date
             )
         );

@@ -106,12 +106,12 @@ contract PolicyToken is ERC721 {
         return
             string(
                 abi.encodePacked(
-                    "product id:",
+                    "product id: ",
                     _params.productId.toString(),
-                    ",",
-                    "policy id:",
-                    _params.policyId,
-                    ",",
+                    ", policy id: ",
+                    byToString(_params.policyId),
+                    ", buyerAddress: ",
+                    addressToString(_params.owner),
                     "premium:",
                     (_params.premium / 10**18).toString(),
                     ",",
@@ -123,5 +123,17 @@ contract PolicyToken is ERC721 {
                     "."
                 )
             );
+    }
+
+    function byToString(bytes32 _bytes) internal pure returns (string memory) {
+        return (uint256(_bytes)).toHexString(32);
+    }
+
+    function addressToString(address _addr)
+        internal
+        pure
+        returns (string memory)
+    {
+        return (uint256(uint160(_addr))).toHexString(20);
     }
 }

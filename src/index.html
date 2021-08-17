@@ -41,7 +41,7 @@
                 <h2 class="mx-auto">Mint Part</h2>
                 <div class="form-group">
                     <label for="mint_number">输入铸造Degis数量</label>
-                    <input class="form-control" type="text" id="mint_number">
+                    <input class="form-control" type="text" id="mint_number" placeholder="100">
                     <small id="mint_number_help" class="form-text text-muted">decimals:18</small>
                 </div>
                 <div class="form-group">
@@ -115,13 +115,26 @@
             </form>
         </div>
 
+        <div class="border" id="calcpart">
+            <form>
+                <h2 class="mx-auto">Calculate Part</h2>
+                <div class="form-group">
+                    <label for="numerator">输入除数</label>
+                    <input class="form-control" type="text" id="numerator">
+                </div>
+                <div class="form-group">
+                    <label for="denominator">输入被除数</label>
+                    <input class="form-control" type="text" id="denominator">
+                </div>
+                <button type="button" class="btn btn-primary btn-calc">press to calculate</button>
+            </form>
+        </div>
+
 
 
         <div class="border" id="poolpart">
             <button type="button" class="btn btn-primary btn-getpoolinfo">Show the pool info</button>
-            <div class="alert alert-light" role="alert">
-                Poolinfo: DegisPerShare, Poolname, PoolId....
-            </div>
+            <button type="button" class="btn btn-primary btn-changeCollateralFactor">Change Collateral Factor</button>
         </div>
 
         <div class="border" id="lppart">

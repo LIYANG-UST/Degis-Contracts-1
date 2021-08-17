@@ -22,7 +22,7 @@ const DEGIS_PER_BLOCK = web3.utils.toBN(10 ** 18);
 module.exports = async function (deployer, network) {
     if (network.startsWith('rinkeby')) {
         // await deployer.deploy(DegisToken)
-        await deployer.deploy(InsurancePool, 100, degis_rinkeby, usdcadd_rinkeby, DEGIS_PER_BLOCK)
+        await deployer.deploy(InsurancePool, 50, degis_rinkeby, usdcadd_rinkeby, DEGIS_PER_BLOCK)
         await deployer.deploy(PolicyFlow, InsurancePool.address, policy_token, RINKEBY_CHAINLINK_ORACLE)
         await deployer.deploy(GetFlightData, RINKEBY_VRF_COORDINATOR, RINKEBY_LINKTOKEN, RINKEBY_KEYHASH)
         // await deployer.deploy(PolicyToken, PolicyFlow.address)

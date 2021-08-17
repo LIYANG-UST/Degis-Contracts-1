@@ -129,20 +129,21 @@ App = {
         $(document).on('click', '.btn-updatepolicyflow', App.updateFlow);
         $(document).on('click', '.btn-updatepooladdress', App.updatePoolAddress);
         $(document).on('click', '.btn-oracle', App.requestOracle);
+        $(document).on('click', '.btn-changeCollateralFactor', App.changeFactor);
+        $(document).on('click', '.btn-calc', App.calculate);
     },
 
-    updatePoolAddress: function () {
+    updatePoolAddress: async function () {
         console.log("update pool -------------------------------")
-        App.contracts.InsurancePool.deployed().then(function (instance) {
-            App.pool_address = instance.address;
-            console.log('Updating pool address:', App.pool_address)
-            var obj = document.querySelector('#pooladdress');
-            obj.innerText = "Pool Address: \xa0 \xa0" + App.pool_address;
+        const pool = await App.contracts.InsurancePool.deployed();
+        App.pool_address = pool.address;
+        console.log('Updating pool address:', App.pool_address)
+        var obj = document.querySelector('#pooladdress');
+        obj.innerText = "Pool Address: \xa0 \xa0" + App.pool_address;
 
-        }).catch(function (err) { //get方法执行失败打印错误
-            console.log(err.message);
-        });
-
+        const policy_flow = await App.contracts.PolicyFlow.deployed();
+        const tx = await pool.setPolicyFlow(policy_flow.address, { from: App.account });
+        console.log(tx.tx);
 
     },
 
@@ -162,7 +163,8 @@ App = {
         let mint_num = document.getElementById("mint_number").value;
         mint_num = web3.utils.toWei(mint_num, 'ether');
 
-        // await dt.mint(mintaddress, web3.utils.toBN(mint_num), { from: App.pool_address });
+        const usdc = await App.contracts.USDC.at(usdcadd_rinkeby);
+        await usdc.mint(mintaddress, web3.utils.toBN(mint_num), { from: App.account });
 
     },
 
@@ -207,6 +209,8 @@ App = {
             PoolInstance.getAvailableCapacity({ from: App.account }).then(value => console.log("Available capacity in the pool:", parseInt(value) / 10 ** 18));
             PoolInstance.getTotalLocked({ from: App.account }).then(value => console.log("Total locked amount in the pool:", parseInt(value) / 10 ** 18));
             PoolInstance.getPoolUnlocked({ from: App.account }).then(value => console.log("Total unlocked amount in the pool:", parseInt(value) / 10 ** 18));
+            PoolInstance.getLockedRatio({ from: App.account }).then(value => console.log("Locked Ratio:", parseInt(value)));
+            PoolInstance.getCollateralFactor({ from: App.account }).then(value => console.log("Collateral Factor:", parseInt(value)));
         }).catch(function (err) { //get方法执行失败打印错误
             console.log(err.message);
         });
@@ -221,6 +225,22 @@ App = {
             instance.getResponse({ from: App.account }).then(value => console.log("response value", value));
         });
 
+    },
+
+    changeFactor: async function () {
+        const pool = await App.contracts.InsurancePool.at(App.pool_address);
+        const tx = await pool.calcFactor(5, 10, { from: App.account });
+        console.log(tx);
+        const cf = await pool.getCollateralFactor();
+        console.log(cf / 2 * 112)
+    },
+
+    calculate: async function () {
+        const pool = await App.contracts.InsurancePool.at(App.pool_address);
+        let n = document.getElementById("numerator").value;
+        let d = document.getElementById("denominator").value;
+        const tx = await pool.doDiv(parseInt(n), parseInt(d), { from: App.account });
+        console.log(parseInt(tx) / 10 ** 18);
     },
 
     updateFlow: function () {
@@ -251,6 +271,10 @@ App = {
             obj.innerText += ("\n unlocked amount:  " + parseInt(value) / 10 ** 18);
         }
         );
+
+        await ip.getLockedfor(App.account, { from: App.account }).then(value => {
+            console.log("your locked amount:", parseInt(value) / 10 ** 18);
+        })
 
         const pendingDegis = await ip.pendingDegis(App.account)
         console.log("pending degis:", parseInt(pendingDegis) / 10 ** 18)
@@ -293,7 +317,7 @@ App = {
         return Y + M + D + h + m + s;
     },
 
-    newApplication: function () {
+    newApplication: async function () {
         console.log('\n ------------Buy new policy----------------');
 
         //let PolicyFlowInstance = await App.contracts.PolicyFlow.deployed();
@@ -305,6 +329,9 @@ App = {
         console.log("departure timestamp:", timestamp);
         console.log("departure time:", App.timestampToTime(timestamp));
 
+        const usdc = await App.contracts.USDC.at(usdcadd_rinkeby)
+
+        await usdc.approve(App.pool_address, web3.utils.toBN(premium), { from: App.account });
 
         App.contracts.PolicyFlow.deployed().then(function (instance) {
             PolicyFlowInstance = instance;
@@ -347,8 +374,7 @@ App = {
     },
 
     deposit: async function () {
-        var PoolInstance;
-        var USDCInstance;
+
         console.log('\n -------------depositing-----------------');
 
 
