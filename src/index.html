@@ -21,7 +21,7 @@
         Degis is an ecosystem for decentralized insurance
     </h1>
     <br>
-    <div id="initpart">
+    <div class="border" id="initpart">
         <button type="button" class="btn btn-primary btn-init">Connect to wallet</button>
         <br>
         <br>
@@ -29,35 +29,42 @@
         <p id="balance">Balance: </p>
         <p id="pooladdress">Pool Address: </p>
         <br>
-        <br>
-        <button type="button" class="btn btn-primary btn-updatepolicyflow">Update Policy Flow Address</button>
         <button type="button" class="btn btn-primary btn-updatepooladdress">Update Pool Address</button>
     </div>
 
+    <div class="border" id="updatepart">
+        <h2 class="mx-auto">Update Policy Flow Address</h2>
+        <p>为InsurancePool和PolicyToken合约设置新的PolicyFlow地址</p>
+        <button type="button" class="btn btn-primary btn-updatepolicyflow">Update Policy Flow Address</button>
+    </div>
+
+    <div class="border" id="mintnftpart">
+        <h2 class="mx-auto">Mint NFT Policy Token</h2>
+        <button type="button" class="btn btn-primary btn-mintnft">press to mint NFT</button>
+    </div>
 
     <div id="content">
         <div class="border" id="mintpart">
             <form>
-                <h2 class="mx-auto">Mint Part</h2>
-                <div class="form-group">
+                <h2 class="mx-auto">Pass Minter Role(Degis)</h2>
+                <!-- <div class="form-group">
                     <label for="mint_number">输入铸造Degis数量</label>
                     <input class="form-control" type="text" id="mint_number" placeholder="100">
                     <small id="mint_number_help" class="form-text text-muted">decimals:18</small>
-                </div>
+                </div> -->
                 <div class="form-group">
-                    <label for="minter">输入你的地址</label>
+                    <label for="minter">输入新的Minter地址(默认转换给insurancePool合约)</label>
                     <input class="form-control" type="text" id="minter">
-                    <small id="minter_help" class="form-text text-muted">eth address</small>
-
+                    <small id="minter_help" class="form-text text-muted">insurancePool address</small>
                 </div>
-                <button type="button" class="btn btn-primary btn-mint">press to mint</button>
-                <button type="button" class="btn btn-primary btn-mintnft">press to mint NFT</button>
+                <button type="button" class="btn btn-primary btn-mint">press to pass minter role</button>
+
             </form>
         </div>
 
         <div class="border" id="stakepart">
             <form>
-                <h2 class="mx-auto">Stake Part</h2>
+                <h2 class="mx-auto">Stake / Unstake Part</h2>
                 <div class="form-group">
                     <label for="stake_number">输入质押/提取的USDC数量</label>
                     <input class="form-control" type="text" id="stake_number">
@@ -67,6 +74,21 @@
                 <button type="button" class="btn btn-primary btn-unstake">press to unstake</button>
                 <button type="button" class="btn btn-primary btn-allowance">press to check allowance</button>
             </form>
+        </div>
+
+        <div class="border" id="lppart">
+            <button type="button" class="btn btn-primary btn-LPInfo">Show my liquidity</button>
+            <div class="alert alert-light" role="alert">
+                LP's asset:
+            </div>
+            <div class="card" style="width: 18rem;">
+                <div class="card-body">
+                    <h5 class="card-title">LP Token
+                    </h5>
+                    <p class="card-text">Show the liquidity part</p>
+                    <p id="lpinfo-show">hello</p>
+                </div>
+            </div>
         </div>
 
         <div class="border" id="policypart">
@@ -115,6 +137,19 @@
             </form>
         </div>
 
+        <div class="border" id="userpart">
+            <button type="button" class="btn btn-primary btn-userpolicy">Show my policies</button>
+            <div class="alert alert-light" role="alert">
+                User's policies:
+            </div>
+            <div class="card" style="width: 18rem;">
+                <div class="card-body">
+                    <h5 class="card-title">Policy Number</h5>
+                    <p id="userpolicy-show">hello</p>
+                </div>
+            </div>
+        </div>
+
         <div class="border" id="calcpart">
             <form>
                 <h2 class="mx-auto">Calculate Part</h2>
@@ -137,38 +172,9 @@
             <button type="button" class="btn btn-primary btn-changeCollateralFactor">Change Collateral Factor</button>
         </div>
 
-        <div class="border" id="lppart">
-            <button type="button" class="btn btn-primary btn-LPInfo">Show my liquidity</button>
-            <div class="alert alert-light" role="alert">
-                LP's asset:
-            </div>
-            <div class="card" style="width: 18rem;">
-                <div class="card-body">
-                    <h5 class="card-title">LP Token
-                    </h5>
-                    <h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
-                    <p class="card-text">Show the liquidity part</p>
-                    <p id="lpinfo-show">hello</p>
-                    <a href="#" class="card-link">Card link</a>
-                    <a href="#" class="card-link">Another link</a>
-                </div>
-            </div>
-        </div>
 
-        <div class="border" id="userpart">
-            <button type="button" class="btn btn-primary btn-userpolicy">Show my policies</button>
-            <div class="alert alert-light" role="alert">
-                User's policies:
-            </div>
-            <div class="card" style="width: 18rem;">
-                <div class="card-body">
-                    <h5 class="card-title">Policy Number</h5>
-                    <p id="userpolicy-show">hello</p>
-                    <a href="#" class="card-link">Card link</a>
-                    <a href="#" class="card-link">Another link</a>
-                </div>
-            </div>
-        </div>
+
+
 
     </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>

@@ -1,5 +1,6 @@
 
 const DegisToken = artifacts.require("DegisToken");
+const LPToken = artifacts.require('LPToken');
 const InsurancePool = artifacts.require("InsurancePool");
 const MockUSD = artifacts.require('MockUSD');
 const GetFlightData = artifacts.require('GetFlightData');
@@ -9,6 +10,8 @@ const PolicyToken = artifacts.require('PolicyToken');
 const degis_rinkeby = "0xa5DaDD05F67996EC2428d07f52C9D3852F18c759";
 const usdcadd_rinkeby = "0x6e95Fc19611cebD936B22Fd1A15D53d98bb31dAF";
 const policy_token = "0x2aCE3BdE730B1fF003cDa21aeeA1Db33b0F04ffC";
+const lptoken = "0xFa0Aa822581fD50d3D8675F52A719919F54f1eBB";
+
 const RINKEBY_VRF_COORDINATOR = '0xb3dCcb4Cf7a26f6cf6B120Cf5A73875B7BBc655B'
 // const RINKEBY_CHAINLINK_ORACLE = '0x7AFe1118Ea78C1eae84ca8feE5C65Bc76CcF879e'
 const RINKEBY_CHAINLINK_ORACLE = '0xD68a20bf40908Bb2a4Fa1D0A2f390AA4Bd128FBB' //dzz
@@ -22,7 +25,8 @@ const DEGIS_PER_BLOCK = web3.utils.toBN(10 ** 18);
 module.exports = async function (deployer, network) {
     if (network.startsWith('rinkeby')) {
         // await deployer.deploy(DegisToken)
-        await deployer.deploy(InsurancePool, 50, degis_rinkeby, usdcadd_rinkeby, DEGIS_PER_BLOCK)
+        // await deployer.deploy(LPToken)
+        await deployer.deploy(InsurancePool, 50, degis_rinkeby, lptoken, usdcadd_rinkeby, DEGIS_PER_BLOCK)
         await deployer.deploy(PolicyFlow, InsurancePool.address, policy_token, RINKEBY_CHAINLINK_ORACLE)
         await deployer.deploy(GetFlightData, RINKEBY_VRF_COORDINATOR, RINKEBY_LINKTOKEN, RINKEBY_KEYHASH)
         // await deployer.deploy(PolicyToken, PolicyFlow.address)

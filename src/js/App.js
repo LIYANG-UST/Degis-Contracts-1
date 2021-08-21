@@ -2,7 +2,11 @@ const usdcadd_rinkeby = "0x6e95Fc19611cebD936B22Fd1A15D53d98bb31dAF";
 // const pool_address = '0xDcB6B0D63b4A6011dF2239A070fdcf65c67f366A';
 const policy_token_address = "0x2aCE3BdE730B1fF003cDa21aeeA1Db33b0F04ffC";
 const degis_token = "0xa5DaDD05F67996EC2428d07f52C9D3852F18c759";
+const lp_token = "0xFa0Aa822581fD50d3D8675F52A719919F54f1eBB";
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 //const Web3 = require('web3');
 App = {
     web3Provider: null,
@@ -10,10 +14,11 @@ App = {
     account: null,
     policyAddress: null,
     pool_address: null,
+    isInit: false,
 
     //初始化
     init: async function () {
-        App.initweb3();
+        await App.initweb3();
 
         web3.eth.getAccounts(function (error, accounts) {
             if (error) {
@@ -24,17 +29,20 @@ App = {
             console.log("my account:", App.account)
 
             var acc = document.getElementById("account");
-            acc.innerText += "\xa0 \xa0";
-            acc.innerText += App.account;
+            acctext = "Account: \xa0 \xa0";
+            acctext += App.account;
+            acc.innerText = acctext;
 
             var bal = document.getElementById("balance");
             web3.eth.getBalance(App.account).then(value => {
-                bal.innerText += "\xa0 \xa0";
-                bal.innerText += value / 10 ** 18;
-                bal.innerText += "\xa0 ETH";
+                baltext = "Balance: \xa0 \xa0";
+                baltext += value / 10 ** 18;
+                baltext += "\xa0 ETH";
+                bal.innerText = baltext;
             });
 
         });
+
     },
 
     //初始化web3
@@ -68,7 +76,7 @@ App = {
 
 
     //初始化合约
-    initContract: function () {
+    initContract: async function () {
         $.getJSON("DegisToken.json", function (data) {
             var DegisTokenArtifact = data;
             App.contracts.DegisToken = TruffleContract(DegisTokenArtifact);
@@ -84,6 +92,11 @@ App = {
             var policyTokenArtifact = data;
             App.contracts.PolicyToken = TruffleContract(policyTokenArtifact);
             App.contracts.PolicyToken.setProvider(App.web3Provider);
+        });
+        $.getJSON("LPToken.json", function (data) {
+            var LPTokenArtifact = data;
+            App.contracts.LPToken = TruffleContract(LPTokenArtifact);
+            App.contracts.LPToken.setProvider(App.web3Provider);
         });
         $.getJSON("InsurancePool.json", function (data) {
             var InsurancePoolArtifact = data;
@@ -141,9 +154,6 @@ App = {
         var obj = document.querySelector('#pooladdress');
         obj.innerText = "Pool Address: \xa0 \xa0" + App.pool_address;
 
-        const policy_flow = await App.contracts.PolicyFlow.deployed();
-        const tx = await pool.setPolicyFlow(policy_flow.address, { from: App.account });
-        console.log(tx.tx);
 
     },
 
@@ -151,35 +161,44 @@ App = {
     mint: async function () {
         //deployed得到合约的实例，通过then的方式回调拿到实例
 
-        console.log("-------------Mint Degis Token---------------");
+        console.log("\n-------------Pass the Minter Role---------------\n");
 
         const dt = await App.contracts.DegisToken.at(degis_token);
-        console.log("degis token address", dt.address)
-        const minter = await dt.passMinterRole(App.pool_address, { from: App.account });
-        console.log("\n Degis Minter Address:", minter.logs[0].args[1]);
+        console.log("\n Degis token address: ", dt.address)
 
+        const lptoken = await App.contracts.DegisToken.at(lp_token);
+        console.log("\n LP token address: ", lptoken.address)
 
         let mintaddress = document.getElementById("minter").value;
-        let mint_num = document.getElementById("mint_number").value;
-        mint_num = web3.utils.toWei(mint_num, 'ether');
 
-        const usdc = await App.contracts.USDC.at(usdcadd_rinkeby);
-        await usdc.mint(mintaddress, web3.utils.toBN(mint_num), { from: App.account });
+        if (mintaddress == "") {
+            const minter_d = await dt.passMinterRole(App.pool_address, { from: App.account });
+            console.log("\n Degis Minter Address:", minter_d.logs[0].args[1]);
+            const minter_l = await lptoken.passMinterRole(App.pool_address, { from: App.account });
+            console.log("\n Degis Minter Address:", minter_l.logs[0].args[1]);
+        }
+        else {
+            const minter_d = await dt.passMinterRole(mintaddress, { from: App.account });
+            console.log("\n Degis Minter Address:", minter_d.logs[0].args[1]);
+            const minter_l = await lptoken.passMinterRole(mintaddress, { from: App.account });
+            console.log("\n Degis Minter Address:", minter_l.logs[0].args[1]);
+        }
+
+
+        // let mint_num = document.getElementById("mint_number").value;
+        // mint_num = web3.utils.toWei(mint_num, 'ether');
+        // const usdc = await App.contracts.USDC.at(usdcadd_rinkeby);
+        // await dt.mint(mintaddress, web3.utils.toBN(mint_num), { from: App.account });
 
     },
 
-    mintNFT: function () {
+    mintNFT: async function () {
         //deployed得到合约的实例，通过then的方式回调拿到实例
-        var PolicyTokenInstance;
-        console.log("---------------Mint NFT-----------------");
-        App.contracts.PolicyToken.at(policy_token_address).then(function (instance) {
-            PolicyTokenInstance = instance;
 
-            return PolicyTokenInstance.mintPolicyToken(App.account, { from: App.account });
-        }).catch(function (err) { //get方法执行失败打印错误
-            console.log(err.message);
-        });
-
+        console.log("\n---------------Mint NFT Policy Token-----------------\n");
+        const policytoken = await App.contracts.PolicyToken.at(policy_token_address)
+        const tx = await policytoken.mintPolicyToken(App.account, { from: App.account });
+        console.log(tx.tx)
     },
 
     checkAllowance: function () {
@@ -198,32 +217,57 @@ App = {
         });
     },
 
-    getPoolInfo: function () {
-        var PoolInstance;
-        console.log('\n -----------Get pool info-------------');
+    getPoolInfo: async function () {
 
-        App.contracts.InsurancePool.deployed().then(function (instance) {
-            PoolInstance = instance;
-            console.log("Pool address:", PoolInstance.address)
-            PoolInstance.getPoolInfo({ from: App.account }).then(value => console.log("Pool name:", value));
-            PoolInstance.getAvailableCapacity({ from: App.account }).then(value => console.log("Available capacity in the pool:", parseInt(value) / 10 ** 18));
-            PoolInstance.getTotalLocked({ from: App.account }).then(value => console.log("Total locked amount in the pool:", parseInt(value) / 10 ** 18));
-            PoolInstance.getPoolUnlocked({ from: App.account }).then(value => console.log("Total unlocked amount in the pool:", parseInt(value) / 10 ** 18));
-            PoolInstance.getLockedRatio({ from: App.account }).then(value => console.log("Locked Ratio:", parseInt(value)));
-            PoolInstance.getCollateralFactor({ from: App.account }).then(value => console.log("Collateral Factor:", parseInt(value)));
-        }).catch(function (err) { //get方法执行失败打印错误
-            console.log(err.message);
-        });
+        console.log('\n ---------------Get pool info-----------------\n');
 
-        App.contracts.USDC.at(usdcadd_rinkeby).then(function (instance) {
-            instance.balanceOf(App.pool_address, { from: App.account }).then(value => console.log("Total USDC balance in the pool:", parseInt(value) / 10 ** 18));
-            instance.allowance(App.account, App.pool_address, { from: App.account }).then(value => console.log("USDC allowance of the pool:", parseInt(value) / 10 ** 18));
+        const pool = await App.contracts.InsurancePool.deployed()
 
-        });
+        console.log("Pool address:", pool.address)
+        await pool.getPoolInfo({ from: App.account })
+            .then(value => console.log("Pool name:", value));
 
-        App.contracts.PolicyFlow.deployed().then(function (instance) {
-            instance.getResponse({ from: App.account }).then(value => console.log("response value", value));
-        });
+        await pool.getCurrentStakingBalance({ from: App.account })
+            .then(value => console.log("Current Staking Balance in the pool:", parseInt(value) / 10 ** 18));
+
+        await pool.getAvailableCapacity({ from: App.account })
+            .then(value => console.log("Available capacity in the pool:", parseInt(value) / 10 ** 18));
+
+        await pool.getTotalLocked({ from: App.account })
+            .then(value => console.log("Total locked amount in the pool:", parseInt(value) / 10 ** 18));
+
+        await pool.getPoolUnlocked({ from: App.account })
+            .then(value => console.log("Total unlocked amount in the pool:", parseInt(value) / 10 ** 18));
+
+        // await pool.getLockedRatio({ from: App.account })
+        //     .then(value => console.log("Locked Ratio:", parseInt(value)));
+
+        // await pool.getCollateralFactor({ from: App.account })
+        //     .then(value => console.log("Collateral Factor:", parseInt(value)));
+
+        await pool.getPRBRatio({ from: App.account })
+            .then(value => console.log("PRB Ratio:", parseInt(value) / 10 ** 18));
+
+        const usdc = await App.contracts.USDC.at(usdcadd_rinkeby)
+        await usdc.balanceOf(App.pool_address, { from: App.account })
+            .then(value => console.log("Total USDC balance in the pool:", parseInt(value) / 10 ** 18));
+
+        await usdc.allowance(App.account, App.pool_address, { from: App.account })
+            .then(value => console.log("USDC allowance of the pool:", parseInt(value) / 10 ** 18));
+
+        const policyflow = await App.contracts.PolicyFlow.deployed()
+        await policyflow.getResponse({ from: App.account })
+            .then(value => console.log("response value", parseInt(value)));
+
+        // await policyflow.setDelayThreshold(240, { from: App.account });
+        // const de_t = await policyflow.getDelayThreshold();
+        // console.log("delay threshold:", de_t)
+
+        const reward_collected = await pool.getRewardCollected();
+        console.log("reward collected:", parseInt(reward_collected) / 10 ** 18)
+
+        const pf_add = await pool.policyFlow.call()
+        console.log("policy flow in the pool:", pf_add)
 
     },
 
@@ -240,37 +284,42 @@ App = {
         let n = document.getElementById("numerator").value;
         let d = document.getElementById("denominator").value;
         const tx = await pool.doDiv(parseInt(n), parseInt(d), { from: App.account });
-        console.log(parseInt(tx) / 10 ** 18);
+        console.log("do div:", parseInt(tx) / 10 ** 18);
+
+        const tx2 = await pool.doMul(web3.utils.toBN(n * 10 ** 18), web3.utils.toBN(d * 10 ** 18), { from: App.account });
+        console.log("do mul:", parseInt(tx2) / 10 ** 18);
     },
 
-    updateFlow: function () {
-        App.contracts.PolicyFlow.deployed().then(function (instance) {
-            App.policyAddress = instance.address;
-            console.log("new policy address:", App.policyAddress);
-        })
+    updateFlow: async function () {
+        const policyflow = await App.contracts.PolicyFlow.deployed()
+        App.policyAddress = policyflow.address;
+        console.log("new policy address:", policyflow.address);
 
-        App.contracts.PolicyToken.at(policy_token_address).then(function (instance) {
-            instance.updatePolicyFlow(App.policyAddress, { from: App.account });
-        })
+        const pool = await App.contracts.InsurancePool.deployed();
+        const tx = await pool.setPolicyFlow(policyflow.address, { from: App.account });
+        console.log(tx.tx);
+        const pf_add = await pool.policyFlow.call()
+        console.log("Policy flow in the pool:", pf_add)
+
+        const policytoken = await App.contracts.PolicyToken.at(policy_token_address)
+        policytoken.updatePolicyFlow(App.policyAddress, { from: App.account });
+
     },
 
     showLPInfo: async function () {
         console.log('\n --------------Show LP info----------------');
         const ip = await App.contracts.InsurancePool.deployed()
         console.log(ip.address)
-        await ip.getStakeAmount(App.account, { from: App.account }).then(value => {
-            // console.log(value)
-            console.log("your stake amount:", parseInt(value) / 10 ** 18)
-            var obj = document.getElementById("lpinfo-show");
-            obj.innerText = ("stake amount:  " + parseInt(value) / 10 ** 18);
-        });
+        const stakeamount = await ip.getStakeAmount(App.account, { from: App.account })
+        console.log("your stake amount:", parseInt(stakeamount) / 10 ** 18)
+        let obj = document.getElementById("lpinfo-show");
+        obj.innerText = ("stake amount:  " + parseInt(stakeamount) / 10 ** 18);
 
-        await ip.getUnlockedfor(App.account, { from: App.account }).then(value => {
-            console.log("your unlocked amount:", parseInt(value) / 10 ** 18);
-            var obj = document.getElementById("lpinfo-show");
-            obj.innerText += ("\n unlocked amount:  " + parseInt(value) / 10 ** 18);
-        }
-        );
+
+        const unlocked = await ip.getUnlockedfor(App.account, { from: App.account })
+        console.log("your unlocked amount:", parseInt(unlocked) / 10 ** 18);
+        obj.innerText += ("\n unlocked amount:  " + parseInt(unlocked) / 10 ** 18);
+
 
         await ip.getLockedfor(App.account, { from: App.account }).then(value => {
             console.log("your locked amount:", parseInt(value) / 10 ** 18);
@@ -278,7 +327,11 @@ App = {
 
         const pendingDegis = await ip.pendingDegis(App.account)
         console.log("pending degis:", parseInt(pendingDegis) / 10 ** 18)
+        obj.innerText += ("\n pending degis:  " + parseInt(pendingDegis) / 10 ** 18);
 
+        const pendingPremium = await ip.pendingPremium(App.account)
+        console.log("pending premium:", parseInt(pendingPremium) / 10 ** 18)
+        obj.innerText += ("\n pending premium:  " + parseInt(pendingPremium) / 10 ** 18);
 
 
     },
@@ -420,7 +473,6 @@ App = {
 
     withdraw: function () {
         var PoolInstance;
-        var USDCInstance;
 
         console.log('\n -------------withdrawing-------------------');
 
@@ -428,14 +480,6 @@ App = {
         console.log("withdraw amount in token:", deposit_amount)
         f_amount = web3.utils.toWei(deposit_amount, 'ether');
         console.log("withdraw amount in wei:", f_amount)
-
-        // App.contracts.USDC.at(usdcadd_rinkeby).then(function (instance) {
-        //     USDCInstance = instance;
-        //     USDCInstance.approve(pool_address, web3.utils.toBN(f_amount), { from: App.account });
-        // }).catch(function (err) { //get方法执行失败打印错误
-        //     console.log(err.message);
-        // })
-
 
         App.contracts.InsurancePool.deployed().then(function (instance) {
             PoolInstance = instance;
@@ -461,7 +505,6 @@ App = {
                 //alert(obj.innerText);
                 obj.innerText = (" your policy amount:  " + parseInt(value));
             });
-            //PolicyFlowInstance.viewPolicy(App.account, { from: App.account });
         }).catch(function (err) {
             console.log(err.message);
         })
@@ -473,6 +516,7 @@ App = {
         }).catch(function (err) {
             console.log(err.message);
         })
+
         App.contracts.PolicyFlow.deployed().then(function (instance) {
             instance.bytesToUint("0x3232322e39350000000000000000000000000000000000000000000000000000", { from: App.account }).then(value => {
                 console.log(parseInt(value));
@@ -495,18 +539,36 @@ App = {
         const ps = await App.contracts.PolicyFlow.deployed()
         console.log("policy flow address:", ps.address)
 
-        const linkAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
+        // const linkAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
+        const linkAddress = await ps.getChainlinkToken()
+        console.log("link address:", linkAddress)
         const linkToken = await App.contracts.LinkTokenInterface.at(linkAddress)
-        const payment = '2000000000000000000'
+
+        const payment = '1000000000000000000'
         const tx1 = await linkToken.transfer(ps.address, payment, { from: App.account })
         console.log(tx1.tx)
 
-        const req = await ps.calculateFlightStatus(parseInt(policy_order),
+        // const req = await ps.calculateFlightStatus(parseInt(policy_order),
+        //     flight_number,
+        //     date,
+        //     "data.0.depart_delay",
+        //     true, { from: App.account });
+        const req = await ps.calculateFlightStatus(policy_order,
             flight_number,
             date,
             "data.0.depart_delay",
             true, { from: App.account });
         console.log(req)
+
+        var flightStatus = await ps.getResponse()
+
+        console.log('flightStatus:', flightStatus)
+
+
+        await sleep(60000)
+        flightStatus = await ps.getResponse()
+
+        console.log('flightStatus:', flightStatus)
     }
 
 
@@ -517,11 +579,13 @@ App = {
 
 //加载应用
 $(function () {
-    $(document).on('click', '.btn-init', function () {
-        App.init();
+    $(document).on('click', '.btn-init', async function () {
+        if (App.isInit == false) {
+            await App.init();
+        }
     })
-    $(window).on("load", function () {
-        App.init();
-
+    $(window).on("load", async function () {
+        await App.init();
+        App.isInit = true;
     });
 });

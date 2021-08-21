@@ -92,9 +92,9 @@ module.exports = async callback => {
             await policyflow.getPolicyIdByCount(i).then(value => {
                 console.log("policy-", i, " id:", value);
             })
-            await policyflow.viewPolicy(account).then(value => {
-                console.log("policy info:", value)
-            })
+            // await policyflow.viewPolicy(account).then(value => {
+            //     console.log("policy info:", value)
+            // })
         }
         await sleep(10000)
         // Unstake
@@ -119,6 +119,12 @@ module.exports = async callback => {
         // console.log("volume:", parseInt(vol))
         // let vol = await policyflow.getVolume();
         // console.log("last volume:", parseInt(vol))
+
+        const policyId = 0
+        const flightNumber = 'WN186'
+        const timestamp = '1628808300'
+        const path = 'data.0.depart_delay'
+        await policyflow.calculateFlightStatus(policyId, flightNumber, timestamp, path, true)
         callback(unstake_tx.tx)
     }
     catch (err) {
