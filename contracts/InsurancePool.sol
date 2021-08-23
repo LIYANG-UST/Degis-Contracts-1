@@ -5,19 +5,11 @@ import "./DegisToken.sol";
 import "./LPToken.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-// import "./libraries/Policy.sol";
 import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "prb-math/contracts/PRBMathUD60x18.sol";
 
-//import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-
-// import "./libraries/FixedMath.sol";
-
-//import "@openzeppelin/contracts/access/Ownable.sol";
-
 contract InsurancePool {
     using FixedPoint for *;
-    //using SafeMath for uint256;
     using PRBMathUD60x18 for uint256;
     using SafeERC20 for IERC20;
 
@@ -117,6 +109,7 @@ contract InsurancePool {
     event Stake(address indexed userAddress, uint256 amount);
     event Unstake(address indexed userAddress, uint256 amount);
     event ChangeCollateralFactor(address indexed onwerAddress, uint256 factor);
+    event SetPolicyFlow(address _policyFlowAddress);
     event BuyNewPolicy(address userAddress, uint256 premium, uint256 payout);
 
     /**
@@ -134,7 +127,8 @@ contract InsurancePool {
     ) {
         owner = msg.sender;
         collateralFactor = calcFactor(_factor, 100);
-        lockedRatio = calcFactor(1, 2);
+        lockedRatio = calcFactor(1, 1);
+
         PRBRatio = 1e18;
         DEGIS = _degis;
         USDC_TOKEN = IERC20(_usdcAddress);
@@ -176,6 +170,7 @@ contract InsurancePool {
      */
     function setPolicyFlow(address _policyFlowAddress) public onlyOwner {
         policyFlow = _policyFlowAddress;
+        emit SetPolicyFlow(_policyFlowAddress);
     }
 
     function doDiv(uint256 x, uint256 y) public pure returns (uint256 result) {
@@ -256,6 +251,9 @@ contract InsurancePool {
         returns (uint256)
     {
         UserInfo storage user = userInfo[_userAddress];
+        uint256 lp_num = DLPToken.balanceOf(_userAddress);
+        uint256 real_balance = doMul(lp_num, LPValue);
+
         uint256 accDegisPerShare = poolInfo.accDegisPerShare;
 
         if (block.number > poolInfo.lastRewardBlock) {
@@ -266,9 +264,9 @@ contract InsurancePool {
                 ((degisReward) * (1e18)) /
                 (currentStakingBalance);
         }
-        return
-            ((user.assetBalance * accDegisPerShare) / (1e18)) -
-            (user.rewardDebt);
+        return ((real_balance * accDegisPerShare) / (1e18)) - (user.rewardDebt);
+        // ((user.assetBalance * accDegisPerShare) / (1e18)) -
+        // (user.rewardDebt);
     }
 
     // View function to see pending premium on frontend.
@@ -278,6 +276,9 @@ contract InsurancePool {
         returns (uint256)
     {
         UserInfo storage user = userInfo[_userAddress];
+        uint256 lp_num = DLPToken.balanceOf(_userAddress);
+        uint256 real_balance = doMul(lp_num, LPValue);
+
         uint256 accPremiumPerShare = poolInfo.accPremiumPerShare;
 
         if (block.number > poolInfo.lastRewardBlock) {
@@ -288,8 +289,7 @@ contract InsurancePool {
                 (currentStakingBalance);
         }
         return
-            ((user.assetBalance * accPremiumPerShare) / (1e18)) -
-            (user.premiumDebt);
+            ((real_balance * accPremiumPerShare) / (1e18)) - (user.premiumDebt);
     }
 
     /**
@@ -445,21 +445,23 @@ contract InsurancePool {
         UserInfo storage user = userInfo[_userAddress];
         updatePoolReward();
 
+        uint256 lp_num = DLPToken.balanceOf(_userAddress);
+        uint256 real_balance = doMul(lp_num, LPValue);
         // If this is not the first deposit, give his reward
-        if (user.assetBalance > 0) {
-            uint256 pending = ((user.assetBalance * poolInfo.accDegisPerShare) /
+        if (real_balance > 0) {
+            uint256 pending = ((real_balance * poolInfo.accDegisPerShare) /
                 (1e18)) - (user.rewardDebt);
-            safeDegisTransfer(msg.sender, pending);
+            safeDegisTransfer(_userAddress, pending);
         }
 
         _deposit(_userAddress, _amount);
 
-        user.rewardDebt =
-            (user.assetBalance * (poolInfo.accDegisPerShare)) /
-            (1e18);
+        lp_num = DLPToken.balanceOf(_userAddress);
+        real_balance = doMul(lp_num, LPValue);
+        user.rewardDebt = (real_balance * (poolInfo.accDegisPerShare)) / (1e18);
 
         user.premiumDebt =
-            (user.assetBalance * (poolInfo.accPremiumPerShare)) /
+            (real_balance * (poolInfo.accPremiumPerShare)) /
             (1e18);
 
         poolInfo.lastRewardCollected = rewardCollected;
@@ -494,23 +496,27 @@ contract InsurancePool {
 
         updatePoolReward();
         UserInfo storage user = userInfo[_userAddress];
-        if (user.assetBalance > 0) {
-            uint256 pending_degis = ((user.assetBalance *
+        uint256 lp_num = DLPToken.balanceOf(_userAddress);
+        uint256 real_balance = doMul(lp_num, LPValue);
+
+        if (real_balance > 0) {
+            uint256 pending_degis = ((real_balance *
                 poolInfo.accDegisPerShare) / (1e18)) - (user.rewardDebt);
             safeDegisTransfer(msg.sender, pending_degis);
 
-            uint256 pending_premium = ((user.assetBalance *
+            uint256 pending_premium = ((real_balance *
                 poolInfo.accPremiumPerShare) / (1e18)) - (user.premiumDebt);
             USDC_TOKEN.safeTransfer(msg.sender, pending_premium);
         }
 
         _withdraw(_userAddress, unstakeAmount);
 
-        user.rewardDebt =
-            (user.assetBalance * (poolInfo.accDegisPerShare)) /
-            (1e18);
+        lp_num = DLPToken.balanceOf(_userAddress);
+        real_balance = doMul(lp_num, LPValue);
+
+        user.rewardDebt = (real_balance * (poolInfo.accDegisPerShare)) / (1e18);
         user.premiumDebt =
-            (user.assetBalance * (poolInfo.accPremiumPerShare)) /
+            (real_balance * (poolInfo.accPremiumPerShare)) /
             (1e18);
 
         poolInfo.lastRewardCollected = rewardCollected;
@@ -633,29 +639,31 @@ contract InsurancePool {
     function harvestDegisReward(address _userAddress) public {
         UserInfo storage user = userInfo[_userAddress];
         updatePoolReward();
-        uint256 pending = ((user.assetBalance * poolInfo.accDegisPerShare) /
-            (1e18)) - (user.rewardDebt);
-        safeDegisTransfer(_userAddress, pending);
-        poolInfo.lastRewardBlock = block.number;
+        uint256 lp_num = DLPToken.balanceOf(_userAddress);
+        uint256 real_balance = doMul(lp_num, LPValue);
 
-        user.rewardDebt =
-            (user.assetBalance * (poolInfo.accDegisPerShare)) /
-            (1e18);
+        if (real_balance > 0) {
+            uint256 pending = ((real_balance * poolInfo.accDegisPerShare) /
+                (1e18)) - (user.rewardDebt);
+            safeDegisTransfer(_userAddress, pending);
+        }
+
+        user.rewardDebt = (real_balance * (poolInfo.accDegisPerShare)) / (1e18);
     }
 
     function harvestPremium(address _userAddress) public {
         UserInfo storage user = userInfo[_userAddress];
         updatePoolReward();
+        uint256 lp_num = DLPToken.balanceOf(_userAddress);
+        uint256 real_balance = doMul(lp_num, LPValue);
 
-        if (user.assetBalance > 0) {
-            uint256 pending = ((user.assetBalance *
-                poolInfo.accPremiumPerShare) / (1e18)) - (user.premiumDebt);
+        if (real_balance > 0) {
+            uint256 pending = ((real_balance * poolInfo.accPremiumPerShare) /
+                (1e18)) - (user.premiumDebt);
             USDC_TOKEN.safeTransfer(_userAddress, pending);
-
-            poolInfo.lastRewardBlock = block.number;
         }
         user.premiumDebt =
-            (user.assetBalance * (poolInfo.accPremiumPerShare)) /
+            (real_balance * (poolInfo.accPremiumPerShare)) /
             (1e18);
 
         poolInfo.lastRewardCollected = rewardCollected;
@@ -673,6 +681,8 @@ contract InsurancePool {
         realStakingBalance -= _payoff;
         activePremiums -= _premium;
         rewardCollected += _premium;
+
+        updateLPValue();
 
         USDC_TOKEN.safeTransfer(_userAddress, _payoff);
     }

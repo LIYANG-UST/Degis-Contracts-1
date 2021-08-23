@@ -81,46 +81,49 @@ App = {
             var DegisTokenArtifact = data;
             App.contracts.DegisToken = TruffleContract(DegisTokenArtifact);
             App.contracts.DegisToken.setProvider(App.web3Provider);
-            console.log('init degis token \n')
+            console.log('Init Degis token')
         });
         $.getJSON("MockUSD.json", function (data) {
             var usdcArtifact = data;
             App.contracts.USDC = TruffleContract(usdcArtifact);
             App.contracts.USDC.setProvider(App.web3Provider);
+            console.log('Init USDC');
         });
         $.getJSON("PolicyToken.json", function (data) {
             var policyTokenArtifact = data;
             App.contracts.PolicyToken = TruffleContract(policyTokenArtifact);
             App.contracts.PolicyToken.setProvider(App.web3Provider);
+            console.log('Init PolicyToken');
         });
         $.getJSON("LPToken.json", function (data) {
             var LPTokenArtifact = data;
             App.contracts.LPToken = TruffleContract(LPTokenArtifact);
             App.contracts.LPToken.setProvider(App.web3Provider);
+            console.log('Init LPToken');
         });
         $.getJSON("InsurancePool.json", function (data) {
             var InsurancePoolArtifact = data;
             App.contracts.InsurancePool = TruffleContract(InsurancePoolArtifact);
             App.contracts.InsurancePool.setProvider(App.web3Provider);
-            console.log('init insurance pool')
+            console.log('Init InsurancePool')
         });
         $.getJSON("PolicyFlow.json", function (data) {
             var PolicyFlowArtifact = data;
             App.contracts.PolicyFlow = TruffleContract(PolicyFlowArtifact);
             App.contracts.PolicyFlow.setProvider(App.web3Provider);
-            console.log('init policy flow')
+            console.log('Init PolicyFlow')
         });
-        $.getJSON("GetFlightData.json", function (data) {
-            var GetFlightDataArtifact = data;
-            App.contracts.GetFlightData = TruffleContract(GetFlightDataArtifact);
-            App.contracts.GetFlightData.setProvider(App.web3Provider);
-            console.log('init get flight data')
+        $.getJSON("GetRandomness.json", function (data) {
+            var GetRandomnessArtifact = data;
+            App.contracts.GetRandomness = TruffleContract(GetRandomnessArtifact);
+            App.contracts.GetRandomness.setProvider(App.web3Provider);
+            console.log('Init Getrandomness')
         });
         $.getJSON("LinkTokenInterface.json", function (data) {
             var LinkTokenArtifact = data;
             App.contracts.LinkTokenInterface = TruffleContract(LinkTokenArtifact);
             App.contracts.LinkTokenInterface.setProvider(App.web3Provider);
-            console.log('init get flight data')
+            console.log('Init LinkToken')
         });
 
         //调用事件
@@ -144,10 +147,12 @@ App = {
         $(document).on('click', '.btn-oracle', App.requestOracle);
         $(document).on('click', '.btn-changeCollateralFactor', App.changeFactor);
         $(document).on('click', '.btn-calc', App.calculate);
+        $(document).on('click', '.btn-harvestDegis', App.harvestDegis);
+        $(document).on('click', '.btn-harvestPremium', App.harvestPremium);
     },
 
     updatePoolAddress: async function () {
-        console.log("update pool -------------------------------")
+        console.log("\n-------------Update pool -----------------\n")
         const pool = await App.contracts.InsurancePool.deployed();
         App.pool_address = pool.address;
         console.log('Updating pool address:', App.pool_address)
@@ -164,24 +169,24 @@ App = {
         console.log("\n-------------Pass the Minter Role---------------\n");
 
         const dt = await App.contracts.DegisToken.at(degis_token);
-        console.log("\n Degis token address: ", dt.address)
+        console.log("Degis token address: ", dt.address)
 
         const lptoken = await App.contracts.DegisToken.at(lp_token);
-        console.log("\n LP token address: ", lptoken.address)
+        console.log("LP token address: ", lptoken.address)
 
         let mintaddress = document.getElementById("minter").value;
 
         if (mintaddress == "") {
             const minter_d = await dt.passMinterRole(App.pool_address, { from: App.account });
-            console.log("\n Degis Minter Address:", minter_d.logs[0].args[1]);
+            console.log("Degis Minter Address:", minter_d.logs[0].args[1]);
             const minter_l = await lptoken.passMinterRole(App.pool_address, { from: App.account });
-            console.log("\n Degis Minter Address:", minter_l.logs[0].args[1]);
+            console.log("LPToken Minter Address:", minter_l.logs[0].args[1]);
         }
         else {
             const minter_d = await dt.passMinterRole(mintaddress, { from: App.account });
-            console.log("\n Degis Minter Address:", minter_d.logs[0].args[1]);
+            console.log("Degis Minter Address:", minter_d.logs[0].args[1]);
             const minter_l = await lptoken.passMinterRole(mintaddress, { from: App.account });
-            console.log("\n Degis Minter Address:", minter_l.logs[0].args[1]);
+            console.log("LPToken Minter Address:", minter_l.logs[0].args[1]);
         }
 
 
@@ -293,7 +298,7 @@ App = {
     updateFlow: async function () {
         const policyflow = await App.contracts.PolicyFlow.deployed()
         App.policyAddress = policyflow.address;
-        console.log("new policy address:", policyflow.address);
+        console.log("New policy address:", policyflow.address);
 
         const pool = await App.contracts.InsurancePool.deployed();
         const tx = await pool.setPolicyFlow(policyflow.address, { from: App.account });
@@ -302,36 +307,36 @@ App = {
         console.log("Policy flow in the pool:", pf_add)
 
         const policytoken = await App.contracts.PolicyToken.at(policy_token_address)
-        policytoken.updatePolicyFlow(App.policyAddress, { from: App.account });
-
+        const tx2 = await policytoken.updatePolicyFlow(App.policyAddress, { from: App.account });
+        console.log(tx2.tx);
     },
 
     showLPInfo: async function () {
-        console.log('\n --------------Show LP info----------------');
+        console.log('\n--------------Show LP info----------------');
         const ip = await App.contracts.InsurancePool.deployed()
         console.log(ip.address)
         const stakeamount = await ip.getStakeAmount(App.account, { from: App.account })
-        console.log("your stake amount:", parseInt(stakeamount) / 10 ** 18)
+        console.log("Your stake amount:", parseInt(stakeamount) / 10 ** 18)
         let obj = document.getElementById("lpinfo-show");
-        obj.innerText = ("stake amount:  " + parseInt(stakeamount) / 10 ** 18);
+        obj.innerText = ("Stake amount:  " + parseInt(stakeamount) / 10 ** 18);
 
 
         const unlocked = await ip.getUnlockedfor(App.account, { from: App.account })
-        console.log("your unlocked amount:", parseInt(unlocked) / 10 ** 18);
-        obj.innerText += ("\n unlocked amount:  " + parseInt(unlocked) / 10 ** 18);
+        console.log("Your unlocked amount:", parseInt(unlocked) / 10 ** 18);
+        obj.innerText += ("\nUnlocked amount:  " + parseInt(unlocked) / 10 ** 18);
 
 
         await ip.getLockedfor(App.account, { from: App.account }).then(value => {
-            console.log("your locked amount:", parseInt(value) / 10 ** 18);
+            console.log("Your locked amount:", parseInt(value) / 10 ** 18);
         })
 
         const pendingDegis = await ip.pendingDegis(App.account)
-        console.log("pending degis:", parseInt(pendingDegis) / 10 ** 18)
-        obj.innerText += ("\n pending degis:  " + parseInt(pendingDegis) / 10 ** 18);
+        console.log("Pending degis:", parseInt(pendingDegis) / 10 ** 18)
+        obj.innerText += ("\nPending degis:  " + parseInt(pendingDegis) / 10 ** 18);
 
         const pendingPremium = await ip.pendingPremium(App.account)
-        console.log("pending premium:", parseInt(pendingPremium) / 10 ** 18)
-        obj.innerText += ("\n pending premium:  " + parseInt(pendingPremium) / 10 ** 18);
+        console.log("Pending premium:", parseInt(pendingPremium) / 10 ** 18)
+        obj.innerText += ("\nPending premium:  " + parseInt(pendingPremium) / 10 ** 18);
 
 
     },
@@ -471,9 +476,7 @@ App = {
         // });
     },
 
-    withdraw: function () {
-        var PoolInstance;
-
+    withdraw: async function () {
         console.log('\n -------------withdrawing-------------------');
 
         deposit_amount = document.getElementById('stake_number').value;
@@ -481,46 +484,31 @@ App = {
         f_amount = web3.utils.toWei(deposit_amount, 'ether');
         console.log("withdraw amount in wei:", f_amount)
 
-        App.contracts.InsurancePool.deployed().then(function (instance) {
-            PoolInstance = instance;
+        const pool = await App.contracts.InsurancePool.deployed()
 
-            return PoolInstance.unstake(App.account, web3.utils.toBN(f_amount), { from: App.account });
-        }).catch(function (err) { //get方法执行失败打印错误
-            console.log(err.message);
-        })
+        const tx = await pool.unstake(App.account, web3.utils.toBN(f_amount), { from: App.account });
+        console.log(tx.tx)
 
     },
 
 
-    showUserPolicy: function () {
+    showUserPolicy: async function () {
         console.log('\n----------------showing user policy--------------\n');
-        var PolicyFlowInstance;
 
-        App.contracts.PolicyFlow.deployed().then(function (instance) {
-            PolicyFlowInstance = instance;
-            console.log("policy address:", PolicyFlowInstance.address);
-            PolicyFlowInstance.getUserPolicyCount(App.account, { from: App.account }).then(value => {
-                console.log("your policy amount:", value.toString())
-                var obj = document.getElementById("userpolicy-show");
-                //alert(obj.innerText);
-                obj.innerText = (" your policy amount:  " + parseInt(value));
-            });
-        }).catch(function (err) {
-            console.log(err.message);
-        })
+        const policyflow = await App.contracts.PolicyFlow.deployed()
+        console.log("PolicyFlow address:", policyflow.address);
 
-        App.contracts.PolicyFlow.deployed().then(function (instance) {
-            instance.viewPolicy(App.account, { from: App.account }).then(value => {
-                console.log(value);
-            })
-        }).catch(function (err) {
-            console.log(err.message);
-        })
+        const policycount = await policyflow.getUserPolicyCount(App.account, { from: App.account })
+        console.log("Your policy amount:", policycount.toString())
+        let obj = document.getElementById("userpolicy-show");
+        obj.innerText = (" Your policy amount: " + policycount.toString());
 
-        App.contracts.PolicyFlow.deployed().then(function (instance) {
-            instance.bytesToUint("0x3232322e39350000000000000000000000000000000000000000000000000000", { from: App.account }).then(value => {
-                console.log(parseInt(value));
-            })
+        const userpolicy = await policyflow.viewPolicy(App.account, { from: App.account })
+        console.log(userpolicy);
+        obj.innerText += ("\n Your policy info: " + userpolicy)
+
+        await policyflow.bytesToUint("0x3232322e39350000000000000000000000000000000000000000000000000000", { from: App.account }).then(value => {
+            console.log(parseInt(value));
         })
 
     },
@@ -569,8 +557,21 @@ App = {
         flightStatus = await ps.getResponse()
 
         console.log('flightStatus:', flightStatus)
-    }
+    },
 
+    harvestPremium: async function () {
+        console.log('\n -------------Harvest Premium-------------------');
+        const pool = await App.contracts.InsurancePool.deployed();
+        const tx = await pool.harvestPremium(App.account, { from: App.account });
+        console.log(tx.tx)
+    },
+
+    harvestDegis: async function () {
+        console.log('\n -------------Harvest Degis-------------------');
+        const pool = await App.contracts.InsurancePool.deployed();
+        const tx = await pool.harvestDegisReward(App.account, { from: App.account });
+        console.log(tx.tx)
+    }
 
 
 

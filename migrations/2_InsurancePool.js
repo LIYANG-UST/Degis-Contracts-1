@@ -3,7 +3,7 @@ const DegisToken = artifacts.require("DegisToken");
 const LPToken = artifacts.require('LPToken');
 const InsurancePool = artifacts.require("InsurancePool");
 const MockUSD = artifacts.require('MockUSD');
-const GetFlightData = artifacts.require('GetFlightData');
+const GetRandomness = artifacts.require('GetRandomness');
 const PolicyFlow = artifacts.require('PolicyFlow');
 const PolicyToken = artifacts.require('PolicyToken');
 
@@ -28,7 +28,7 @@ module.exports = async function (deployer, network) {
         // await deployer.deploy(LPToken)
         await deployer.deploy(InsurancePool, 50, degis_rinkeby, lptoken, usdcadd_rinkeby, DEGIS_PER_BLOCK)
         await deployer.deploy(PolicyFlow, InsurancePool.address, policy_token, RINKEBY_CHAINLINK_ORACLE)
-        await deployer.deploy(GetFlightData, RINKEBY_VRF_COORDINATOR, RINKEBY_LINKTOKEN, RINKEBY_KEYHASH)
+        await deployer.deploy(GetRandomness, RINKEBY_VRF_COORDINATOR, RINKEBY_LINKTOKEN, RINKEBY_KEYHASH)
         // await deployer.deploy(PolicyToken, PolicyFlow.address)
     }
     else if (network.startsWith('development')) {

@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "./libraries/Policy.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol"; // test version. use random number for test
 
-contract GetFlightData is VRFConsumerBase {
+contract GetRandomness is VRFConsumerBase {
     address public owner;
 
     // LINK Token address on rinkeby: 0x01BE23585060835E02B77ef475b0Cc51aA1e0709
