@@ -5,10 +5,13 @@ const MockUSD = artifacts.require('MockUSD')
 const PolicyToken = artifacts.require('PolicyToken')
 const DegisToken = artifacts.require('DegisToken')
 const LinkTokenInterface = artifacts.require('LinkTokenInterface')
+const LPToken = artifacts.require('LPToken');
+const EmergencyPool = artifacts.require('EmergencyPool')
 // Constant Addresses
 const usdcadd_rinkeby = "0x6e95Fc19611cebD936B22Fd1A15D53d98bb31dAF";
 const policy_token = "0x2aCE3BdE730B1fF003cDa21aeeA1Db33b0F04ffC";
 const degis_token = "0xa5DaDD05F67996EC2428d07f52C9D3852F18c759";
+const lptoken = "0xFa0Aa822581fD50d3D8675F52A719919F54f1eBB";
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -21,7 +24,7 @@ module.exports = async callback => {
         /********************************* Basic Information ***************************/
         const accounts = await web3.eth.getAccounts();
         const account = accounts[0];
-        console.log("My Account:", account);
+        console.log("\n My Account:", account);
         console.log(web3.version)
         // Prepare All contracts
         const pool = await InsurancePool.deployed();
@@ -36,6 +39,9 @@ module.exports = async callback => {
         const policy_nft = await PolicyToken.at(policy_token);
         console.log("\n Policy NFT Token Address:", policy_nft.address);
 
+        const lp_token = await LPToken.at(lptoken);
+        console.log("\n LP Token address:", lp_token.address);
+
         const degis = await DegisToken.at(degis_token);
 
         const balance = await degis.balanceOf(pool.address);
@@ -46,7 +52,7 @@ module.exports = async callback => {
 
         const linkAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
         const linkToken = await LinkTokenInterface.at(linkAddress)
-        const payment = '2000000000000000000'
+        const payment = '1000000000000000000'
         const tx1 = await linkToken.transfer(policyflow.address, payment)
         console.log(tx1.tx)
         // View the link balance in the contract
@@ -54,7 +60,7 @@ module.exports = async callback => {
         console.log('\n PolicyFlow Link Balance:', web3.utils.fromWei(linkBalance.toString()))
 
         // Pool basic Info
-        const pool_name = await pool.getPoolInfo();
+        const pool_name = await pool.getPoolName();
         const pool_bal = await pool.getCurrentStakingBalance();
         const user_bal = await pool.getStakeAmount(account);
         console.log("\n Pool Name:", pool_name, "pool avac", parseInt(pool_bal) / 10 ** 18, "user bal", parseInt(user_bal) / 10 ** 18);
@@ -92,9 +98,6 @@ module.exports = async callback => {
             await policyflow.getPolicyIdByCount(i).then(value => {
                 console.log("policy-", i, " id:", value);
             })
-            // await policyflow.viewPolicy(account).then(value => {
-            //     console.log("policy info:", value)
-            // })
         }
         await sleep(10000)
         // Unstake
@@ -104,28 +107,19 @@ module.exports = async callback => {
         console.log(unstake_tx.tx)
 
         /********************************* Final Check ***************************/
-        // for (let i = 0; i < parseInt(policy_amount); i++) {
-        //     // await policyflow.policyFinalCheck(i).then(value => {
-        //     //     console.log("policyId", i, ":", value);
-        //     // })
-        //     let req_id = await policyflow.policyFinalCheck(i)
-        //     console.log("policy", i, " request id:", req_id.logs[0].args[0])
-        //     console.log("Sleeping for response from chainlink....")
-        //     await sleep(30000)
-        //     let vol = await policyflow.getVolume();
-        //     console.log("volume:", parseInt(vol))
-        // }
-        // let vol = await policyflow.getVolume();
-        // console.log("volume:", parseInt(vol))
-        // let vol = await policyflow.getVolume();
-        // console.log("last volume:", parseInt(vol))
 
         const policyId = 0
         const flightNumber = 'WN186'
         const timestamp = '1628808300'
         const path = 'data.0.depart_delay'
-        await policyflow.calculateFlightStatus(policyId, flightNumber, timestamp, path, true)
-        callback(unstake_tx.tx)
+        const oracle_tx = await policyflow.calculateFlightStatus(policyId, flightNumber, timestamp, path, true)
+        console.log(oracle_tx.tx)
+
+        await sleep(30000)
+        const oracle_return = await policyflow.getResponse();
+        console.log("Flight status from oracle:", oracle_return);
+
+        callback(oracle_return)
     }
     catch (err) {
         callback(err)

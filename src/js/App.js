@@ -171,7 +171,7 @@ App = {
         const dt = await App.contracts.DegisToken.at(degis_token);
         console.log("Degis token address: ", dt.address)
 
-        const lptoken = await App.contracts.DegisToken.at(lp_token);
+        const lptoken = await App.contracts.LPToken.deployed();
         console.log("LP token address: ", lptoken.address)
 
         let mintaddress = document.getElementById("minter").value;
@@ -227,9 +227,10 @@ App = {
         console.log('\n ---------------Get pool info-----------------\n');
 
         const pool = await App.contracts.InsurancePool.deployed()
+        const rand = await App.contracts.GetRandomness.deployed()
 
         console.log("Pool address:", pool.address)
-        await pool.getPoolInfo({ from: App.account })
+        await pool.getPoolName({ from: App.account })
             .then(value => console.log("Pool name:", value));
 
         await pool.getCurrentStakingBalance({ from: App.account })
@@ -273,6 +274,9 @@ App = {
 
         const pf_add = await pool.policyFlow.call()
         console.log("policy flow in the pool:", pf_add)
+
+        const result = await rand.getResult({ from: App.account })
+        console.log("random number", parseInt(result));
 
     },
 
@@ -330,6 +334,15 @@ App = {
             console.log("Your locked amount:", parseInt(value) / 10 ** 18);
         })
 
+        const real_balance = await ip.getRealBalance(App.account);
+        console.log("your real balance", parseInt(real_balance) / 10 ** 18)
+
+        const lpvalue = await ip.LPValue.call();
+        const lptoken = await App.contracts.LPToken.deployed();
+        const lpnum = await lptoken.balanceOf(App.account);
+        console.log("lpnum", parseInt(lpnum) / 10 ** 18)
+        console.log("lpvalue", parseInt(lpvalue) / 10 ** 18)
+
         const pendingDegis = await ip.pendingDegis(App.account)
         console.log("Pending degis:", parseInt(pendingDegis) / 10 ** 18)
         obj.innerText += ("\nPending degis:  " + parseInt(pendingDegis) / 10 ** 18);
@@ -341,27 +354,27 @@ App = {
 
     },
 
-    getRandomness: function () {
-        var CLInstance;
+    getRandomness: async function () {
         console.log('\n ----------get random number------------');
-        App.contracts.GetFlightData.deployed().then(function (instance) {
-            CLInstance = instance;
-            return CLInstance.getRandomNumber({ from: App.account });
+        const rand = await App.contracts.GetRandomness.deployed()
 
-        }).then(value => {
-            // console.log("value tyte:", typeof (value))
-            ret = value.logs[0].args[0]; //返回值是交易信息，需要这样获取值
-            console.log(ret);
-            console.log(web3.utils.toAscii(ret))
-            // var r_value = web3.utils.hexToAscii(value);
-            // console.log(r_value);
-            CLInstance.getResult({ from: App.account }).then(p_value => {
-                console.log(typeof (p_value))
-                console.log(parseInt(p_value));
-                console.log(web3.utils.toBN(p_value));
-            });
 
-        });
+
+        const linkAddress = "0x01BE23585060835E02B77ef475b0Cc51aA1e0709"
+        console.log("link address:", linkAddress)
+        const linkToken = await App.contracts.LinkTokenInterface.at(linkAddress)
+
+        const payment = '100000000000000000'
+        const tx1 = await linkToken.transfer(rand.address, payment, { from: App.account })
+        console.log(tx1.tx)
+
+
+        const tx2 = await rand.getRandomNumber({ from: App.account });
+        const random = tx2.logs[0].args[0]; //返回值是交易信息，需要这样获取值
+        console.log(random);
+
+        const result = await rand.getResult({ from: App.account })
+        console.log(parseInt(result));
     },
 
     timestampToTime: function (timestamp) {

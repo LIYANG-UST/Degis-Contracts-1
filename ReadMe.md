@@ -9,7 +9,7 @@ npm install -g truffle
 ```
 ### Keys
 - Go to Infura to get your Infura Key
-- Use Metamask or other wallets to generate your private key(mnemonic)
+- Use Metamask or other wallets to generate your private key (mnemonic)
 - Store Infura Key and Private Key in the .env file
 
 
@@ -23,6 +23,7 @@ npm install
 truffle compile --all
 truffle migrate --network <networkname> --reset
 ```
+Currently we do test on Rinkeby.
 
 ## Test
 ### Test with ganache (network: development)

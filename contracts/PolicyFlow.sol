@@ -90,12 +90,15 @@ contract PolicyFlow is ChainlinkClient {
         // set oracle
         oracleAddress = _oracleAddress;
         jobId = "cef74a7ff7ea4194ab97f00c89abef6b";
+
         setPublicChainlinkToken();
         fee = 1 * 10**18;
 
         // Initialized the count
         Total_Policies = 0;
     }
+
+    // ************************************ Modifiers ************************************ //
 
     modifier onlyOracle() {
         require(
@@ -109,34 +112,11 @@ contract PolicyFlow is ChainlinkClient {
         _;
     }
 
-    /**
-     * @notice change the job id
-     * @param _jobId: new job Id
-     */
-    function changeJobId(bytes32 _jobId) public onlyOwner {
-        jobId = _jobId;
-    }
-
-    /**
-     * @notice change the oracle fee
-     * @param _fee: new fee
-     */
-    function changeFee(uint256 _fee) public onlyOwner {
-        fee = _fee;
-    }
-
-    /**
-     * @notice change the oracle address
-     * @param _oracleAddress: new oracle address
-     */
-    function changeOrcaleAddress(address _oracleAddress) public onlyOwner {
-        oracleAddress = _oracleAddress;
-    }
-
+    // ************************************ View Functions ************************************ //
     /**
      * @notice show the current job id
      */
-    function getJobId() public view onlyOwner returns (bytes32) {
+    function getJobId() public view returns (bytes32) {
         return jobId;
     }
 
@@ -212,45 +192,6 @@ contract PolicyFlow is ChainlinkClient {
     }
 
     /**
-     * @notice transfer an address to a string
-     * @param _addr: input address
-     * @return string form of _addr
-     */
-    function addressToString(address _addr)
-        internal
-        pure
-        returns (string memory)
-    {
-        return (uint256(uint160(_addr))).toHexString(20);
-    }
-
-    /**
-     * @notice transfer bytes32 to string (not change the content)
-     * @param _bytes: input bytes32
-     * @return string form of _bytes
-     */
-    function byToString(bytes32 _bytes) internal pure returns (string memory) {
-        return (uint256(_bytes)).toHexString(32);
-    }
-
-    /**
-     * @notice transfer bytes32 to string (human-readable form)
-     * @param _bytes: input bytes32
-     * @return string form of _bytes
-     */
-    function bytes32ToString(bytes32 _bytes)
-        public
-        pure
-        returns (string memory)
-    {
-        bytes memory bytesArray = new bytes(32);
-        for (uint256 i; i < 32; i++) {
-            bytesArray[i] = _bytes[i];
-        }
-        return string(bytesArray);
-    }
-
-    /**
      * @notice get the policyId (bytes32) from its count/order
      * @param _count: total count
      * @return policyId (bytes32)
@@ -294,10 +235,16 @@ contract PolicyFlow is ChainlinkClient {
         return Total_Policies;
     }
 
+    /**
+     * @notice get the response (oracle return value) (only for test)
+     */
     function getResponse() public view returns (uint256) {
         return response;
     }
 
+    /**
+     * @notice get the response (oracle return value) (only for test)
+     */
     function getUserPolicyCount(address _userAddress)
         public
         view
@@ -306,6 +253,9 @@ contract PolicyFlow is ChainlinkClient {
         return userPolicyCount[_userAddress];
     }
 
+    /**
+     * @notice get the policy buyer by policyId
+     */
     function findPolicyBuyerById(bytes32 _policyId)
         public
         view
@@ -314,13 +264,105 @@ contract PolicyFlow is ChainlinkClient {
         return policyList[_policyId].buyerAddress;
     }
 
+    /**
+     * @notice get the delay threshold
+     */
+    function getDelayThreshold() public view returns (uint256) {
+        return DELAY_THRESHOLD;
+    }
+
+    // ************************************ Helper Functions ************************************ //
+
+    /**
+     * @notice change the job id
+     * @param _jobId: new job Id
+     */
+    function changeJobId(bytes32 _jobId) public onlyOwner {
+        jobId = _jobId;
+    }
+
+    /**
+     * @notice change the oracle fee
+     * @param _fee: new fee
+     */
+    function changeFee(uint256 _fee) public onlyOwner {
+        fee = _fee;
+    }
+
+    /**
+     * @notice change the oracle address
+     * @param _oracleAddress: new oracle address
+     */
+    function changeOrcaleAddress(address _oracleAddress) public onlyOwner {
+        oracleAddress = _oracleAddress;
+    }
+
+    /**
+     * @notice transfer an address to a string
+     * @param _addr: input address
+     * @return string form of _addr
+     */
+    function addressToString(address _addr)
+        internal
+        pure
+        returns (string memory)
+    {
+        return (uint256(uint160(_addr))).toHexString(20);
+    }
+
+    /**
+     * @notice transfer bytes32 to string (not change the content)
+     * @param _bytes: input bytes32
+     * @return string form of _bytes
+     */
+    function byToString(bytes32 _bytes) internal pure returns (string memory) {
+        return (uint256(_bytes)).toHexString(32);
+    }
+
+    /**
+     * @notice transfer bytes32 to string (human-readable form)
+     * @param _bytes: input bytes32
+     * @return string form of _bytes
+     */
+    function bytes32ToString(bytes32 _bytes)
+        public
+        pure
+        returns (string memory)
+    {
+        bytes memory bytesArray = new bytes(32);
+        for (uint256 i; i < 32; i++) {
+            bytesArray[i] = _bytes[i];
+        }
+        return string(bytesArray);
+    }
+
+    /**
+     * @notice set the new delay threshold
+     */
     function setDelayThreshold(uint256 _threshold) public {
         DELAY_THRESHOLD = _threshold;
     }
 
-    function getDelayThreshold() public view returns (uint256) {
-        return DELAY_THRESHOLD;
+    /**
+     * @notice Transfer a bytes(ascii) to uint
+     * @param s input bytes
+     * @return the number
+     */
+    function bytesToUint(bytes32 s) public pure returns (uint256) {
+        bytes memory b = new bytes(32);
+        for (uint256 i; i < 32; i++) {
+            b[i] = s[i];
+        }
+        uint256 result = 0;
+        for (uint256 i = 0; i < b.length; i++) {
+            if (uint8(b[i]) >= 48 && uint8(b[i]) <= 57) {
+                result = result * 10 + (uint8(b[i]) - 48);
+            }
+        }
+        return result;
     }
+
+    // ************************************ Main Functions ************************************ //
 
     /**
      * @notice start a new policy application
@@ -364,7 +406,7 @@ contract PolicyFlow is ChainlinkClient {
             _departureDate,
             PolicyStatus.INI,
             false,
-            800
+            404
         );
 
         userPolicy[_userAddress].push(Total_Policies); //store the policyID with userAddress
@@ -598,7 +640,7 @@ contract PolicyFlow is ChainlinkClient {
             // 400: cancelled
             policyClaimed(
                 policyList[policyId].premium,
-                policyList[policyId].payoff / 4,
+                policyList[policyId].payoff,
                 policyList[policyId].buyerAddress,
                 policyId
             );
@@ -620,26 +662,18 @@ contract PolicyFlow is ChainlinkClient {
      * @return the final payoff volume
      */
     function calcPayoff(uint256 _delay) internal pure returns (uint256) {
-        uint256 payoff = ((_delay**2) / 40) * 1e18;
-        return payoff;
-    }
+        uint256 payoff = 0;
 
-    /**
-     * @notice Transfer a bytes(ascii) to uint
-     * @param s input bytes
-     * @return the number
-     */
-    function bytesToUint(bytes32 s) public pure returns (uint256) {
-        bytes memory b = new bytes(32);
-        for (uint256 i; i < 32; i++) {
-            b[i] = s[i];
+        // payoff model 1 - linear
+        if (_delay <= 60) {
+            payoff = _delay;
+        } else if (_delay > 60 && _delay <= 120) {
+            payoff = 60 + (_delay - 60) * 2;
+        } else if (_delay > 120 && _delay <= 240) {
+            payoff = 180 + (_delay - 120) * 3;
         }
-        uint256 result = 0;
-        for (uint256 i = 0; i < b.length; i++) {
-            if (uint8(b[i]) >= 48 && uint8(b[i]) <= 57) {
-                result = result * 10 + (uint8(b[i]) - 48);
-            }
-        }
-        return result;
+
+        payoff = payoff * 1e18;
+        return payoff;
     }
 }
