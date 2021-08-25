@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-// import "./interfaces/IPolicyFlow.sol";
+
 import "./libraries/Policy.sol";
 import "./libraries/ToStrings.sol";
 import "./interfaces/IInsurancePool.sol";
@@ -12,10 +12,9 @@ contract PolicyFlow is ChainlinkClient {
     using Chainlink for Chainlink.Request;
     using Strings for uint256;
 
-    bytes32 public response; // A test variable
+    uint256 public response; // A test variable
     uint256 fee;
-    string constant FLIGHT_STATUS_URL =
-        "http://39.101.132.228:8000/flight_info";
+    string constant FLIGHT_STATUS_URL = "http://39.101.132.228:8000/live/";
     address private oracleAddress;
     bytes32 private jobId;
 
@@ -26,13 +25,15 @@ contract PolicyFlow is ChainlinkClient {
     }
 
     mapping(bytes32 => uint256) requestList; // requestId => total order
-    mapping(uint256 => bytes32) resultList; // total order => delay result
+    mapping(uint256 => uint256) resultList; // total order => delay result
+
     address public owner;
     IInsurancePool insurancePool;
     IPolicyToken policyToken;
 
     // Minimum time before departure for applying
     uint256 public constant MIN_TIME_BEFORE_DEPARTURE = 24 hours;
+    uint256 public DELAY_THRESHOLD = 240;
     uint256 Total_Policies;
 
     enum PolicyStatus {
@@ -51,10 +52,10 @@ contract PolicyFlow is ChainlinkClient {
         uint256 premium;
         uint256 payoff;
         uint256 purchaseDate; // Unix timestamp
-        uint256 expiryDate; // Unix timestamp
-        PolicyStatus status;
+        uint256 departureDate; // Unix timestamp
+        PolicyStatus status; // INI, SOLD, DECLINED, EXPIRED, CLAIMED
         // Oracle Related
-        bool isUsed;
+        bool isUsed; // Whether has call the oracle
         uint256 delayResult; // [400:cancelled] [0: on time] [0 ~ 240: delay time] [404: initial]
     }
 
@@ -67,8 +68,8 @@ contract PolicyFlow is ChainlinkClient {
     event FulfilledOracleRequest(bytes32 _policyId, bytes32 _requestId);
 
     // Mappings
-    mapping(bytes32 => PolicyInfo) policyList;
-    mapping(uint256 => bytes32) policyOrderList;
+    mapping(bytes32 => PolicyInfo) policyList; // policyId => policyInfo
+    mapping(uint256 => bytes32) policyOrderList; // total order => policyId
 
     mapping(address => uint256[]) userPolicy; // uint256[]: those totalOrders of a user
     mapping(address => uint256) userPolicyCount;
@@ -88,13 +89,16 @@ contract PolicyFlow is ChainlinkClient {
 
         // set oracle
         oracleAddress = _oracleAddress;
-        jobId = "8cd6d6cad1ed43e99829746a6da7fb59";
+        jobId = "cef74a7ff7ea4194ab97f00c89abef6b";
+
         setPublicChainlinkToken();
         fee = 1 * 10**18;
 
         // Initialized the count
         Total_Policies = 0;
     }
+
+    // ************************************ Modifiers ************************************ //
 
     modifier onlyOracle() {
         require(
@@ -108,34 +112,11 @@ contract PolicyFlow is ChainlinkClient {
         _;
     }
 
-    /**
-     * @notice change the job id
-     * @param _jobId: new job Id
-     */
-    function changeJobId(bytes32 _jobId) public onlyOwner {
-        jobId = _jobId;
-    }
-
-    /**
-     * @notice change the oracle fee
-     * @param _fee: new fee
-     */
-    function changeFee(uint256 _fee) public onlyOwner {
-        fee = _fee;
-    }
-
-    /**
-     * @notice change the oracle address
-     * @param _oracleAddress: new oracle address
-     */
-    function changeOrcaleAddress(address _oracleAddress) public onlyOwner {
-        oracleAddress = _oracleAddress;
-    }
-
+    // ************************************ View Functions ************************************ //
     /**
      * @notice show the current job id
      */
-    function getJobId() public view onlyOwner returns (bytes32) {
+    function getJobId() public view returns (bytes32) {
         return jobId;
     }
 
@@ -144,6 +125,15 @@ contract PolicyFlow is ChainlinkClient {
      */
     function getOrcaleAddress() public view onlyOwner returns (address) {
         return oracleAddress;
+    }
+
+    /**
+     * @notice Returns the address of the LINK token
+     * @dev This is the public implementation for chainlinkTokenAddress, which is
+     * an internal method of the ChainlinkClient contract
+     */
+    function getChainlinkToken() public view returns (address) {
+        return chainlinkTokenAddress();
     }
 
     /**
@@ -202,6 +192,112 @@ contract PolicyFlow is ChainlinkClient {
     }
 
     /**
+     * @notice get the policyId (bytes32) from its count/order
+     * @param _count: total count
+     * @return policyId (bytes32)
+     */
+    function getPolicyIdByCount(uint256 _count) public view returns (bytes32) {
+        return policyOrderList[_count];
+    }
+
+    /**
+     * @notice get the policyInfo from its count/order
+     * @param _count: total count
+     */
+    function getPolicyInfoByCount(uint256 _count)
+        public
+        view
+        returns (
+            bytes32 _policyId,
+            uint256 _productId,
+            address _owner,
+            uint256 _premium,
+            uint256 _payoff,
+            uint256 _departureDate
+        )
+    {
+        bytes32 policyId = policyOrderList[_count];
+        return (
+            policyId,
+            policyList[policyId].productId,
+            policyList[policyId].buyerAddress,
+            policyList[policyId].premium,
+            policyList[policyId].payoff,
+            policyList[policyId].departureDate
+        );
+    }
+
+    /**
+     * @notice get the total policy count
+     * @return total policy count
+     */
+    function getTotalPolicyCount() public view returns (uint256) {
+        return Total_Policies;
+    }
+
+    /**
+     * @notice get the response (oracle return value) (only for test)
+     */
+    function getResponse() public view returns (uint256) {
+        return response;
+    }
+
+    /**
+     * @notice get the response (oracle return value) (only for test)
+     */
+    function getUserPolicyCount(address _userAddress)
+        public
+        view
+        returns (uint256)
+    {
+        return userPolicyCount[_userAddress];
+    }
+
+    /**
+     * @notice get the policy buyer by policyId
+     */
+    function findPolicyBuyerById(bytes32 _policyId)
+        public
+        view
+        returns (address)
+    {
+        return policyList[_policyId].buyerAddress;
+    }
+
+    /**
+     * @notice get the delay threshold
+     */
+    function getDelayThreshold() public view returns (uint256) {
+        return DELAY_THRESHOLD;
+    }
+
+    // ************************************ Helper Functions ************************************ //
+
+    /**
+     * @notice change the job id
+     * @param _jobId: new job Id
+     */
+    function changeJobId(bytes32 _jobId) public onlyOwner {
+        jobId = _jobId;
+    }
+
+    /**
+     * @notice change the oracle fee
+     * @param _fee: new fee
+     */
+    function changeFee(uint256 _fee) public onlyOwner {
+        fee = _fee;
+    }
+
+    /**
+     * @notice change the oracle address
+     * @param _oracleAddress: new oracle address
+     */
+    function changeOrcaleAddress(address _oracleAddress) public onlyOwner {
+        oracleAddress = _oracleAddress;
+    }
+
+    /**
      * @notice transfer an address to a string
      * @param _addr: input address
      * @return string form of _addr
@@ -241,68 +337,32 @@ contract PolicyFlow is ChainlinkClient {
     }
 
     /**
-     * @notice get the policyId (bytes32) from its count/order
-     * @param _count: total count
-     * @return policyId (bytes32)
+     * @notice set the new delay threshold
      */
-    function getPolicyIdByCount(uint256 _count) public view returns (bytes32) {
-        return policyOrderList[_count];
+    function setDelayThreshold(uint256 _threshold) public {
+        DELAY_THRESHOLD = _threshold;
     }
 
     /**
-     * @notice get the policyInfo from its count/order
-     * @param _count: total count
+     * @notice Transfer a bytes(ascii) to uint
+     * @param s input bytes
+     * @return the number
      */
-    function getPolicyInfoByCount(uint256 _count)
-        public
-        view
-        returns (
-            bytes32 _policyId,
-            uint256 _productId,
-            address _owner,
-            uint256 _premium,
-            uint256 _payoff,
-            uint256 _expiryDate
-        )
-    {
-        bytes32 policyId = policyOrderList[_count];
-        return (
-            policyId,
-            policyList[policyId].productId,
-            policyList[policyId].buyerAddress,
-            policyList[policyId].premium,
-            policyList[policyId].payoff,
-            policyList[policyId].expiryDate
-        );
+    function bytesToUint(bytes32 s) public pure returns (uint256) {
+        bytes memory b = new bytes(32);
+        for (uint256 i; i < 32; i++) {
+            b[i] = s[i];
+        }
+        uint256 result = 0;
+        for (uint256 i = 0; i < b.length; i++) {
+            if (uint8(b[i]) >= 48 && uint8(b[i]) <= 57) {
+                result = result * 10 + (uint8(b[i]) - 48);
+            }
+        }
+        return result;
     }
 
-    /**
-     * @notice get the total policy count
-     * @return total policy count
-     */
-    function getTotalPolicyCount() public view returns (uint256) {
-        return Total_Policies;
-    }
-
-    function getResponse() public view returns (bytes32) {
-        return response;
-    }
-
-    function getUserPolicyCount(address _userAddress)
-        public
-        view
-        returns (uint256)
-    {
-        return userPolicyCount[_userAddress];
-    }
-
-    function findPolicyBuyerById(bytes32 _policyId)
-        public
-        view
-        returns (address)
-    {
-        return policyList[_policyId].buyerAddress;
-    }
+    // ************************************ Main Functions ************************************ //
 
     /**
      * @notice start a new policy application
@@ -310,18 +370,18 @@ contract PolicyFlow is ChainlinkClient {
      * @param _productId: ID of the purchased product (0: flightdelay; 1,2,3...: others) (different products)
      * @param _premium: premium of this policy (decimal 18)
      * @param _payoff: payoff of this policy (decimal 18)
-     * @param _expiryDate: expiry date of this policy (unix timestamp)
+     * @param _departureDate: expiry date of this policy (unix timestamp)
      */
     function newApplication(
         address _userAddress,
         uint256 _productId,
         uint256 _premium,
         uint256 _payoff,
-        uint256 _expiryDate
+        uint256 _departureDate
     ) public returns (bytes32 _policyId) {
         // Check the buying time not too close to the departure time
         require(
-            _expiryDate >= block.timestamp + MIN_TIME_BEFORE_DEPARTURE,
+            _departureDate >= block.timestamp + MIN_TIME_BEFORE_DEPARTURE,
             "ERROR::TIME_TO_DEPARTURE_TOO_SMALL"
         );
         // Generate the unique policyId
@@ -329,7 +389,7 @@ contract PolicyFlow is ChainlinkClient {
             abi.encodePacked(
                 _userAddress,
                 _productId,
-                _expiryDate,
+                _departureDate,
                 Total_Policies
             )
         );
@@ -343,7 +403,7 @@ contract PolicyFlow is ChainlinkClient {
             _premium,
             _payoff,
             TEMP_purchaseDate,
-            _expiryDate,
+            _departureDate,
             PolicyStatus.INI,
             false,
             404
@@ -385,6 +445,7 @@ contract PolicyFlow is ChainlinkClient {
         if (_isAccepted) {
             policyList[_policyId].status = PolicyStatus.SOLD;
             emit PolicySold(_policyId, _userAddress);
+
             policyToken.mintPolicyToken(_userAddress);
         } else {
             policyList[_policyId].status = PolicyStatus.DECLINED;
@@ -463,60 +524,6 @@ contract PolicyFlow is ChainlinkClient {
     //     return requestId;
     // }
 
-    function fulfill(bytes32 _requestId, bytes32 _data)
-        public
-        recordChainlinkFulfillment(_requestId)
-    {
-        uint256 volume = bytesToUint(_data);
-        response = _data;
-
-        uint256 order = requestList[_requestId];
-        bytes32 policyId = policyOrderList[order];
-        policyList[policyId].delayResult = volume;
-
-        if (volume == 0) {
-            policyExpired(
-                policyList[policyId].premium,
-                policyList[policyId].payoff,
-                policyList[policyId].buyerAddress,
-                policyId
-            );
-        } else if (volume <= 240) {
-            uint256 payoff = (volume**2) / (40);
-            if (payoff < policyList[policyId].payoff) {
-                policyClaimed(
-                    policyList[policyId].premium,
-                    payoff,
-                    policyList[policyId].buyerAddress,
-                    policyId
-                );
-            } else {
-                policyClaimed(
-                    policyList[policyId].premium,
-                    policyList[policyId].payoff,
-                    policyList[policyId].buyerAddress,
-                    policyId
-                );
-            }
-        } else if (volume == 400) {
-            policyClaimed(
-                policyList[policyId].premium,
-                policyList[policyId].payoff / 4,
-                policyList[policyId].buyerAddress,
-                policyId
-            );
-        } else {
-            policyExpired(
-                policyList[policyId].premium,
-                policyList[policyId].payoff,
-                policyList[policyId].buyerAddress,
-                policyId
-            );
-        }
-
-        emit FulfilledOracleRequest(policyId, _requestId);
-    }
-
     /** @notice calculate the flight status
      *  @param _policyOrder The total order of the policy
      *  @param _flightNumber The flight number
@@ -538,14 +545,11 @@ contract PolicyFlow is ChainlinkClient {
             "The policy has been final checked, or you need to force update"
         );
 
-        policyList[_policyId].isUsed = true;
-
         string memory _url = string(
             abi.encodePacked(
                 FLIGHT_STATUS_URL,
-                "/flight_no=",
                 _flightNumber,
-                "/date=",
+                "/timestamp=",
                 _date
             )
         );
@@ -558,6 +562,7 @@ contract PolicyFlow is ChainlinkClient {
             1
         );
         requestList[requestId] = _policyOrder;
+        policyList[_policyId].isUsed = true;
     }
 
     /**
@@ -577,7 +582,7 @@ contract PolicyFlow is ChainlinkClient {
         string memory _url,
         string memory _path,
         int256 _times
-    ) private returns (bytes32 requestId) {
+    ) private returns (bytes32) {
         Chainlink.Request memory req = buildChainlinkRequest(
             _jobId,
             address(this),
@@ -586,20 +591,89 @@ contract PolicyFlow is ChainlinkClient {
         req.add("url", _url);
         req.add("path", _path);
         req.addInt("times", _times);
-        requestId = sendChainlinkRequestTo(_oracle, req, _payment);
+        return sendChainlinkRequestTo(_oracle, req, _payment);
     }
 
-    function bytesToUint(bytes32 s) public pure returns (uint256) {
-        bytes memory b = new bytes(32);
-        for (uint256 i; i < 32; i++) {
-            b[i] = s[i];
-        }
-        uint256 result = 0;
-        for (uint256 i = 0; i < b.length; i++) {
-            if (uint8(b[i]) >= 48 && uint8(b[i]) <= 57) {
-                result = result * 10 + (uint8(b[i]) - 48);
+    /**
+     * @notice The fulfill method from requests created by this contract
+     * @dev The recordChainlinkFulfillment protects this function from being called
+     * by anyone other than the oracle address that the request was sent to
+     * @param _requestId The ID that was generated for the request
+     * @param _data The answer provided by the oracle
+     */
+    function fulfill(bytes32 _requestId, uint256 _data)
+        public
+        recordChainlinkFulfillment(_requestId)
+    {
+        response = _data;
+
+        uint256 order = requestList[_requestId];
+        bytes32 policyId = policyOrderList[order];
+        policyList[policyId].delayResult = _data;
+
+        if (_data == 0) {
+            // 0: on time
+            policyExpired(
+                policyList[policyId].premium,
+                policyList[policyId].payoff,
+                policyList[policyId].buyerAddress,
+                policyId
+            );
+        } else if (_data <= DELAY_THRESHOLD) {
+            uint256 payoff = calcPayoff(_data);
+            if (payoff < policyList[policyId].payoff) {
+                policyClaimed(
+                    policyList[policyId].premium,
+                    payoff,
+                    policyList[policyId].buyerAddress,
+                    policyId
+                );
+            } else {
+                policyClaimed(
+                    policyList[policyId].premium,
+                    policyList[policyId].payoff,
+                    policyList[policyId].buyerAddress,
+                    policyId
+                );
             }
+        } else if (_data == 400) {
+            // 400: cancelled
+            policyClaimed(
+                policyList[policyId].premium,
+                policyList[policyId].payoff,
+                policyList[policyId].buyerAddress,
+                policyId
+            );
+        } else {
+            policyExpired(
+                policyList[policyId].premium,
+                policyList[policyId].payoff,
+                policyList[policyId].buyerAddress,
+                policyId
+            );
         }
-        return result;
+
+        emit FulfilledOracleRequest(policyId, _requestId);
+    }
+
+    /**
+     * @notice The payoff formula
+     * @param _delay Delay in minutes
+     * @return the final payoff volume
+     */
+    function calcPayoff(uint256 _delay) internal pure returns (uint256) {
+        uint256 payoff = 0;
+
+        // payoff model 1 - linear
+        if (_delay <= 60) {
+            payoff = _delay;
+        } else if (_delay > 60 && _delay <= 120) {
+            payoff = 60 + (_delay - 60) * 2;
+        } else if (_delay > 120 && _delay <= 240) {
+            payoff = 180 + (_delay - 120) * 3;
+        }
+
+        payoff = payoff * 1e18;
+        return payoff;
     }
 }

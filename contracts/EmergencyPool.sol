@@ -3,24 +3,29 @@ pragma solidity ^0.8.0;
 
 import "./DegisToken.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract EmergencyPool is Ownable {
+    using SafeERC20 for IERC20;
 
-    IERC20 public USDC_TOKEN; 
+    IERC20 public USDC_TOKEN;
 
     // current total balance of the pool
-    uint256 emergencyBalance; 
+    uint256 emergencyBalance;
 
-    // poolInfo: the information about this pool
-    struct poolInfo {  
+    // PoolInfo: the information about this pool
+    struct PoolInfo {
         string poolName;
         uint256 poolId;
     }
+
+    PoolInfo poolInfo;
 
     constructor(address _usdcAddress) {
         transferOwnership(msg.sender);
         USDC_TOKEN = IERC20(_usdcAddress);
         emergencyBalance = 0;
+        poolInfo = PoolInfo("Emergency Pool", 1);
     }
 
     event Deposit(address indexed userAddress, uint256 amount);
@@ -32,7 +37,7 @@ contract EmergencyPool is Ownable {
      * @param _amount: the amount he deposits
      */
     function _deposit(address _userAddress, uint256 _amount) internal {
-        USDC_TOKEN.transferFrom(_userAddress, address(this), _amount);
+        USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _amount);
     }
 
     /**
@@ -43,30 +48,36 @@ contract EmergencyPool is Ownable {
     function _withdraw(address _userAddress, uint256 _amount) internal {
         // 加入给用户转账的代码
         // 使用其他ERC20 代币 usdc/dai
-        USDC_TOKEN.transferFrom(address(this), _userAddress, _amount);
+        USDC_TOKEN.safeTransfer(_userAddress, _amount);
     }
 
-    // @function emergencyDeposit: a user(LP) want to stake some amount of asset
-    // @param _userAddress: user's address
-    // @param _amount: the amount that the user want to stake
-    function emergencyDeposit(address _userAddress, uint256 _amount) public onlyOwner {
+    /**
+     * @notice stake into the pool
+     * @param _userAddress: user's address
+     * @param _amount: the amount that the user want to stake
+     */
+    function deposit(address _userAddress, uint256 _amount) public {
         emergencyBalance += _amount;
         _deposit(_userAddress, _amount);
         emit Deposit(_userAddress, _amount);
     }
 
     /**
-     * @notice emergencyWithdraw: a user want to unstake some amount
+     * @notice emergencyWithdraw: unstake the asset (only by the owner)
      * @param _userAddress: user's address
      * @param _amount: the amount that the user want to unstake
      */
-    function emergencyWithdraw(address _userAddress, uint256 _amount) public onlyOwner {
+    // the ownership need to be transferred to another contract in the future
+    function emergencyWithdraw(address _userAddress, uint256 _amount)
+        public
+        onlyOwner
+    {
         require(
             _amount <= emergencyBalance,
             "not enough balance to be unlocked"
         );
         emergencyBalance -= _amount;
-        _withdraw(_userAddress, _amount); 
+        _withdraw(_userAddress, _amount);
         emit Withdraw(_userAddress, _amount);
     }
 }
