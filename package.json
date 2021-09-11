@@ -6,7 +6,7 @@
   "homepage": "http://.",
   "dependencies": {
     "@chainlink/contracts": "^0.2.1",
-    "@openzeppelin/contracts": "4.1.0",
+    "@openzeppelin/contracts": "^4.3.1",
     "@truffle/contract": "^4.3.26",
     "@truffle/hdwallet-provider": "^1.4.0",
     "@uniswap/lib": "^5.0.0-alpha",
