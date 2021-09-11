@@ -51,6 +51,7 @@ contract EmergencyPool is Ownable {
      * @param _amount: the amount that the user want to stake
      */
     function deposit(address _userAddress, uint256 _amount) external {
+        require(_amount >= 0, "Please deposit some funds");
         emergencyBalance += _amount;
         _deposit(_userAddress, _amount);
         emit Deposit(_userAddress, _amount);

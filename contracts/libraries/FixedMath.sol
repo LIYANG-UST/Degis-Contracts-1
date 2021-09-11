@@ -13,7 +13,7 @@ library FixedMath {
      * @param _denominator: 100, the divider
      */
     function calcFactor(uint256 _numerator, uint256 _denominator)
-        public
+        pure
         returns (FixedPoint.uq112x112 memory)
     {
         return FixedPoint.fraction(_numerator, _denominator);

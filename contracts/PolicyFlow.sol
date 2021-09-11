@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./libraries/Policy.sol";
+import "./libraries/PolicyTypes.sol";
 import "./libraries/ToStrings.sol";
 import "./interfaces/IInsurancePool.sol";
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
