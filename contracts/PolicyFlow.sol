@@ -8,21 +8,15 @@ import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "./interfaces/IPolicyToken.sol";
 
-contract PolicyFlow is ChainlinkClient {
+contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     using Chainlink for Chainlink.Request;
     using Strings for uint256;
 
-    uint256 public response; // A test variable
+    uint256 public oracleResponse; // A test variable to store the oracle address
     uint256 fee;
-    string constant FLIGHT_STATUS_URL = "http://39.101.132.228:8000/live/";
+    string private FLIGHT_STATUS_URL = "http://39.101.132.228:8000/live/";
     address private oracleAddress;
     bytes32 private jobId;
-
-    enum RequestStatus {
-        INIT,
-        SENT,
-        COMPLETED
-    }
 
     mapping(bytes32 => uint256) requestList; // requestId => total order
     mapping(uint256 => uint256) resultList; // total order => delay result
@@ -36,43 +30,12 @@ contract PolicyFlow is ChainlinkClient {
     uint256 public DELAY_THRESHOLD = 240;
     uint256 Total_Policies;
 
-    enum PolicyStatus {
-        INI,
-        SOLD,
-        DECLINED,
-        EXPIRED,
-        CLAIMED
-    }
-
-    struct PolicyInfo {
-        uint256 productId; // 0: flight delay 1,2,3: future products
-        address buyerAddress; // buyer's address
-        uint256 totalOrder; // total order: 0 - N (unique for each policy)(used to link)
-        bytes32 policyId; // unique ID (bytes32) for this policy
-        uint256 premium;
-        uint256 payoff;
-        uint256 purchaseDate; // Unix timestamp
-        uint256 departureDate; // Unix timestamp
-        PolicyStatus status; // INI, SOLD, DECLINED, EXPIRED, CLAIMED
-        // Oracle Related
-        bool isUsed; // Whether has call the oracle
-        uint256 delayResult; // [400:cancelled] [0: on time] [0 ~ 240: delay time] [404: initial]
-    }
-
-    // Events list
-    event newPolicyApplication(bytes32 _policyID, address);
-    event PolicySold(bytes32 _policyID, address);
-    event PolicyDeclined(bytes32 _policyID, address);
-    event PolicyClaimed(bytes32 _policyID, address);
-    event PolicyExpired(bytes32 _policyID, address);
-    event FulfilledOracleRequest(bytes32 _policyId, bytes32 _requestId);
-
     // Mappings
     mapping(bytes32 => PolicyInfo) policyList; // policyId => policyInfo
     mapping(uint256 => bytes32) policyOrderList; // total order => policyId
 
     mapping(address => uint256[]) userPolicy; // uint256[]: those totalOrders of a user
-    mapping(address => uint256) userPolicyCount;
+    mapping(address => uint256) userPolicyCount; // userAddress => user policy amount
 
     // Constructor Function
     constructor(
@@ -92,9 +55,9 @@ contract PolicyFlow is ChainlinkClient {
         jobId = "cef74a7ff7ea4194ab97f00c89abef6b";
 
         setPublicChainlinkToken();
-        fee = 1 * 10**18;
+        fee = 1 * 10**18; // 1 LINK
 
-        // Initialized the count
+        // Initialized the count (do not need to initialize)
         Total_Policies = 0;
     }
 
@@ -113,19 +76,6 @@ contract PolicyFlow is ChainlinkClient {
     }
 
     // ************************************ View Functions ************************************ //
-    /**
-     * @notice show the current job id
-     */
-    function getJobId() public view returns (bytes32) {
-        return jobId;
-    }
-
-    /**
-     * @notice show the current oracle address
-     */
-    function getOrcaleAddress() public view onlyOwner returns (address) {
-        return oracleAddress;
-    }
 
     /**
      * @notice Returns the address of the LINK token
@@ -167,7 +117,7 @@ contract PolicyFlow is ChainlinkClient {
                             "\nPolicy",
                             i.toString(),
                             ": \n{PolicyId: ",
-                            byToString(policyid),
+                            bytes32ToString(policyid),
                             ", \nProductId: ",
                             policyList[policyid].productId.toString(),
                             ", \nbuyerAddress: ",
@@ -228,22 +178,8 @@ contract PolicyFlow is ChainlinkClient {
     }
 
     /**
-     * @notice get the total policy count
-     * @return total policy count
-     */
-    function getTotalPolicyCount() public view returns (uint256) {
-        return Total_Policies;
-    }
-
-    /**
-     * @notice get the response (oracle return value) (only for test)
-     */
-    function getResponse() public view returns (uint256) {
-        return response;
-    }
-
-    /**
-     * @notice get the response (oracle return value) (only for test)
+     * @notice get a user's policy amount
+     * @param _userAddress: user's address
      */
     function getUserPolicyCount(address _userAddress)
         public
@@ -262,13 +198,6 @@ contract PolicyFlow is ChainlinkClient {
         returns (address)
     {
         return policyList[_policyId].buyerAddress;
-    }
-
-    /**
-     * @notice get the delay threshold
-     */
-    function getDelayThreshold() public view returns (uint256) {
-        return DELAY_THRESHOLD;
     }
 
     // ************************************ Helper Functions ************************************ //
@@ -298,68 +227,10 @@ contract PolicyFlow is ChainlinkClient {
     }
 
     /**
-     * @notice transfer an address to a string
-     * @param _addr: input address
-     * @return string form of _addr
-     */
-    function addressToString(address _addr)
-        internal
-        pure
-        returns (string memory)
-    {
-        return (uint256(uint160(_addr))).toHexString(20);
-    }
-
-    /**
-     * @notice transfer bytes32 to string (not change the content)
-     * @param _bytes: input bytes32
-     * @return string form of _bytes
-     */
-    function byToString(bytes32 _bytes) internal pure returns (string memory) {
-        return (uint256(_bytes)).toHexString(32);
-    }
-
-    /**
-     * @notice transfer bytes32 to string (human-readable form)
-     * @param _bytes: input bytes32
-     * @return string form of _bytes
-     */
-    function bytes32ToString(bytes32 _bytes)
-        public
-        pure
-        returns (string memory)
-    {
-        bytes memory bytesArray = new bytes(32);
-        for (uint256 i; i < 32; i++) {
-            bytesArray[i] = _bytes[i];
-        }
-        return string(bytesArray);
-    }
-
-    /**
      * @notice set the new delay threshold
      */
-    function setDelayThreshold(uint256 _threshold) public {
+    function setDelayThreshold(uint256 _threshold) public onlyOwner {
         DELAY_THRESHOLD = _threshold;
-    }
-
-    /**
-     * @notice Transfer a bytes(ascii) to uint
-     * @param s input bytes
-     * @return the number
-     */
-    function bytesToUint(bytes32 s) public pure returns (uint256) {
-        bytes memory b = new bytes(32);
-        for (uint256 i; i < 32; i++) {
-            b[i] = s[i];
-        }
-        uint256 result = 0;
-        for (uint256 i = 0; i < b.length; i++) {
-            if (uint8(b[i]) >= 48 && uint8(b[i]) <= 57) {
-                result = result * 10 + (uint8(b[i]) - 48);
-            }
-        }
-        return result;
     }
 
     // ************************************ Main Functions ************************************ //
@@ -394,6 +265,7 @@ contract PolicyFlow is ChainlinkClient {
             )
         );
         uint256 TEMP_purchaseDate = block.timestamp;
+
         // Generate the policy
         policyList[TEMP_policyId] = PolicyInfo(
             _productId,
@@ -409,16 +281,19 @@ contract PolicyFlow is ChainlinkClient {
             404
         );
 
-        userPolicy[_userAddress].push(Total_Policies); //store the policyID with userAddress
+        // Store the policy's total order with userAddress
+        userPolicy[_userAddress].push(Total_Policies);
+        // Update the user's policy amount
         userPolicyCount[_userAddress] += 1;
-
+        // Update the policyOrderList
         policyOrderList[Total_Policies] = TEMP_policyId;
+        // Update total policies
         Total_Policies += 1;
 
-        //string memory policyId_RETURN = bytesToString(TEMP_policyId);
         emit newPolicyApplication(TEMP_policyId, _userAddress);
 
         // Check the policy with the insurance pool status
+        // May be accepted or rejected
         policyCheck(_premium, _payoff, _userAddress, TEMP_policyId);
 
         return TEMP_policyId;
@@ -437,6 +312,7 @@ contract PolicyFlow is ChainlinkClient {
         address _userAddress,
         bytes32 _policyId
     ) public {
+        // Whether there are enough capacity in the pool
         bool _isAccepted = insurancePool.updateWhenBuy(
             _premium,
             _payoff,
@@ -487,42 +363,6 @@ contract PolicyFlow is ChainlinkClient {
         policyList[_policyId].status = PolicyStatus.CLAIMED;
         emit PolicyClaimed(_policyId, _userAddress);
     }
-
-    // /**
-    //  * @notice Check the final delay status of the flight
-    //  * @param _policyOrder: the unique policy total order
-    //  */
-    // function policyFinalCheck(uint256 _policyOrder)
-    //     public
-    //     returns (bytes32 _requestId)
-    // {
-    //     // request final status from chainlink, return requestId
-    //     // Set the callback function as "policyStatusCallback"
-    //     bytes32 policyId = policyOrderList[_policyOrder];
-
-    //     Chainlink.Request memory request = buildChainlinkRequest(
-    //         jobId,
-    //         address(this),
-    //         this.fulfill.selector
-    //     );
-
-    //     // Set the URL to perform the GET request on
-    //     request.add(
-    //         "get",
-    //         "https://api.coingecko.com/api/v3/simple/price?ids=chainlink&vs_currencies=USD"
-    //     );
-
-    //     request.add("path", "chainlink.usd");
-
-    //     // Multiply the result by 1000000000000000000 to remove decimals
-    //     int256 timesAmount = 10**2;
-    //     request.addInt("times", timesAmount);
-
-    //     // Sends the request
-    //     bytes32 requestId = sendChainlinkRequestTo(oracleAddress, request, fee);
-    //     requestList[requestId] = policyId;
-    //     return requestId;
-    // }
 
     /** @notice calculate the flight status
      *  @param _policyOrder The total order of the policy
@@ -605,7 +445,7 @@ contract PolicyFlow is ChainlinkClient {
         public
         recordChainlinkFulfillment(_requestId)
     {
-        response = _data;
+        oracleResponse = _data;
 
         uint256 order = requestList[_requestId];
         bytes32 policyId = policyOrderList[order];

@@ -5,12 +5,10 @@ import "./DegisToken.sol";
 import "./LPToken.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@uniswap/lib/contracts/libraries/FixedPoint.sol";
 import "prb-math/contracts/PRBMathUD60x18.sol";
 import "./interfaces/IEmergencyPool.sol";
 
 contract InsurancePool {
-    using FixedPoint for *;
     using PRBMathUD60x18 for uint256;
     using SafeERC20 for IERC20;
 
@@ -20,6 +18,7 @@ contract InsurancePool {
     // the policyflow address, used for access control
     address public policyFlow;
 
+    // *********************************************************************//
     // ****************** Information about each user ****************** //
     struct UserInfo {
         uint256 rewardDebt; // degis reward debt
@@ -52,8 +51,7 @@ contract InsurancePool {
     uint256 public lockedBalance;
 
     // locked relation = locked balance / currentStakingBalance
-    FixedPoint.uq112x112 lockedRatio; // tip: currently this variable is not used, but still hold its position
-    uint256 public PRBRatio; //  1e18 = 1  1e17 = 0.1  1e19 = 10
+    uint256 public PRB_lockedRatio; //  1e18 = 1  1e17 = 0.1  1e19 = 10
 
     // available capacity is the current available asset balance
     uint256 public availableCapacity;
@@ -63,9 +61,6 @@ contract InsurancePool {
 
     // rewardCollected is total income from premium
     uint256 public rewardCollected;
-
-    // collateral factor = asset / max risk exposure, initially need to be >100%
-    FixedPoint.uq112x112 public collateralFactor; // tip: currently this variable is not used
 
     // the information about this pool
     struct PoolInfo {
@@ -125,7 +120,7 @@ contract InsurancePool {
         collateralFactor = calcFactor(_factor, 100);
         lockedRatio = calcFactor(1, 1);
 
-        PRBRatio = 1e18; // 1e18 = 1
+        PRB_lockedRatio = 1e18; // 1e18 = 1
         DEGIS = _degis;
         USDC_TOKEN = IERC20(_usdcAddress);
         poolInfo = PoolInfo(
@@ -153,6 +148,7 @@ contract InsurancePool {
         require(msg.sender == owner, "only the owner can call this function");
         _;
     }
+
     /**
      * @notice only the policyFlow contract can call some functions
      */
@@ -167,10 +163,10 @@ contract InsurancePool {
     // ************************************ View Functions ************************************ //
 
     /**
-     * @notice get PRBRatio of the pool
+     * @notice get PRB_lockedRatio of the pool
      */
-    function getPRBRatio() public view returns (uint256) {
-        return PRBRatio;
+    function getLockedRatio() public view returns (uint256) {
+        return PRB_lockedRatio;
     }
 
     /**
@@ -475,7 +471,7 @@ contract InsurancePool {
         lockedRatio = FixedPoint.uq112x112(
             uint224(lockedBalance / currentStakingBalance)
         );
-        PRBRatio = doDiv(lockedBalance, currentStakingBalance);
+        PRB_lockedRatio = doDiv(lockedBalance, currentStakingBalance);
 
         USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _premium);
 
@@ -589,7 +585,7 @@ contract InsurancePool {
             uint224(lockedBalance / currentStakingBalance)
         );
 
-        PRBRatio = doDiv(lockedBalance, currentStakingBalance);
+        PRB_lockedRatio = doDiv(lockedBalance, currentStakingBalance);
 
         USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _amount);
 
@@ -631,7 +627,7 @@ contract InsurancePool {
         lockedRatio = FixedPoint.uq112x112(
             uint224(lockedBalance / currentStakingBalance)
         );
-        PRBRatio = doDiv(lockedBalance, currentStakingBalance);
+        PRB_lockedRatio = doDiv(lockedBalance, currentStakingBalance);
         //加入给用户转账的代码
         // 使用其他ERC20 代币 usdc/dai
 
@@ -675,7 +671,7 @@ contract InsurancePool {
                         j++
                     ) {
                         pendingAmount = unstakeRequests[pendingUser][j]
-                        .pendingAmount;
+                            .pendingAmount;
                         if (remainingPayoff > pendingAmount) {
                             remainingPayoff -= pendingAmount;
 
@@ -693,9 +689,9 @@ contract InsurancePool {
                             USDC_TOKEN.safeTransfer(pendingUser, pendingAmount);
                         } else {
                             unstakeRequests[pendingUser][j]
-                            .pendingAmount -= remainingPayoff;
+                                .pendingAmount -= remainingPayoff;
                             unstakeRequests[pendingUser][j]
-                            .fulfilledAmount += remainingPayoff;
+                                .fulfilledAmount += remainingPayoff;
                             USDC_TOKEN.safeTransfer(
                                 pendingUser,
                                 remainingPayoff
@@ -827,7 +823,7 @@ contract InsurancePool {
             userInfo[_userAddress].freeBalance;
         realStakingBalance += remainingRequest;
         userInfo[_userAddress].freeBalance = userInfo[_userAddress]
-        .assetBalance;
+            .assetBalance;
     }
 
     /**

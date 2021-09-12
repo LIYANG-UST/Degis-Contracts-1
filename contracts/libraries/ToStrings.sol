@@ -47,4 +47,23 @@ contract ToStrings {
         }
         return string(bytesArray);
     }
+
+    /**
+     * @notice Transfer a bytes(ascii) to uint
+     * @param s input bytes
+     * @return the number
+     */
+    function bytesToUint(bytes32 s) public pure returns (uint256) {
+        bytes memory b = new bytes(32);
+        for (uint256 i; i < 32; i++) {
+            b[i] = s[i];
+        }
+        uint256 result = 0;
+        for (uint256 i = 0; i < b.length; i++) {
+            if (uint8(b[i]) >= 48 && uint8(b[i]) <= 57) {
+                result = result * 10 + (uint8(b[i]) - 48);
+            }
+        }
+        return result;
+    }
 }
