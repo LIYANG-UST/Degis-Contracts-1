@@ -5,7 +5,12 @@ interface IInsurancePool {
     event Stake(address indexed userAddress, uint256 amount);
     event Unstake(address indexed userAddress, uint256 amount);
     event ChangeCollateralFactor(address indexed onwerAddress, uint256 factor);
-    event BuyNewPolicy(address userAddress, uint256 premium, uint256 payout);
+    event BuyNewPolicy(
+        address indexed userAddress,
+        uint256 premium,
+        uint256 payout
+    );
+    event OwnerChanged(address oldOwner, address newOwner);
 
     function getTotalLocked() external view returns (uint256);
 
@@ -23,11 +28,13 @@ interface IInsurancePool {
         address
     ) external returns (bool);
 
+    function updateWhenExpire(uint256, uint256) external;
+
     function payClaim(
         uint256,
         uint256,
         address
     ) external;
 
-    function updateWhenExpire(uint256, uint256) external;
+    function harvestDegisReward(address) external;
 }
