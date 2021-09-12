@@ -19,6 +19,7 @@ contract PolicyTypes {
         uint256 payoff;
         uint256 purchaseDate; // Unix timestamp
         uint256 departureDate; // Unix timestamp
+        uint256 landingDate;
         PolicyStatus status; // INI, SOLD, DECLINED, EXPIRED, CLAIMED
         // Oracle Related
         bool isUsed; // Whether has call the oracle

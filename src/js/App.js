@@ -1,8 +1,8 @@
 const usdcadd_rinkeby = "0x6e95Fc19611cebD936B22Fd1A15D53d98bb31dAF";
 // const pool_address = '0xDcB6B0D63b4A6011dF2239A070fdcf65c67f366A';
-const policy_token_address = "0x2aCE3BdE730B1fF003cDa21aeeA1Db33b0F04ffC";
-const degis_token = "0xa5DaDD05F67996EC2428d07f52C9D3852F18c759";
-const lp_token = "0xFa0Aa822581fD50d3D8675F52A719919F54f1eBB";
+const policy_token_address = "0xF29Ca363D07d77c1BD37986791472D7429b3a693";
+const degis_token = "0xD51e2fb717A0DDC55aec9990b6F3F8B76D4922D9";
+// const lp_token = "0xC37Be5d653685DA882BcbD47EF10D9760DC0D7ee";
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -251,8 +251,8 @@ App = {
         // await pool.getCollateralFactor({ from: App.account })
         //     .then(value => console.log("Collateral Factor:", parseInt(value)));
 
-        await pool.getPRBRatio({ from: App.account })
-            .then(value => console.log("PRB Ratio:", parseInt(value) / 10 ** 18));
+        await pool.getLockedRatio({ from: App.account })
+            .then(value => console.log("PRB locked Ratio:", parseInt(value) / 10 ** 18));
 
         const usdc = await App.contracts.USDC.at(usdcadd_rinkeby)
         await usdc.balanceOf(App.pool_address, { from: App.account })
@@ -262,7 +262,7 @@ App = {
             .then(value => console.log("USDC allowance of the pool:", parseInt(value) / 10 ** 18));
 
         const policyflow = await App.contracts.PolicyFlow.deployed()
-        await policyflow.getResponse({ from: App.account })
+        await policyflow.oracleResponse({ from: App.account })
             .then(value => console.log("response value", parseInt(value)));
 
         // await policyflow.setDelayThreshold(240, { from: App.account });
@@ -275,7 +275,7 @@ App = {
         const pf_add = await pool.policyFlow.call()
         console.log("policy flow in the pool:", pf_add)
 
-        const result = await rand.getResult({ from: App.account })
+        const result = await rand.randomResult({ from: App.account })
         console.log("random number", parseInt(result));
 
     },
@@ -396,9 +396,10 @@ App = {
         let payoff = web3.utils.toWei(document.getElementById("payoff").value, 'ether');
         var timestamp = new Date().getTime();
 
-        timestamp = timestamp + 86400000 + 100;
-        console.log("departure timestamp:", timestamp);
-        console.log("departure time:", App.timestampToTime(timestamp));
+        timestamp1 = timestamp + 86400000 + 100;
+        timestamp2 = timestamp1 + 60000;
+        console.log("departure timestamp:", timestamp1);
+        console.log("departure time:", App.timestampToTime(timestamp1));
 
         const usdc = await App.contracts.USDC.at(usdcadd_rinkeby)
 
@@ -412,7 +413,7 @@ App = {
                 0,
                 web3.utils.toBN(premium),
                 web3.utils.toBN(payoff),
-                timestamp, { from: App.account })
+                timestamp1, timestamp2, { from: App.account })
                 .catch(err => console.warn(err))
                 .then(value => {
                     // var str = web3.utils.toAscii("0x657468657265756d000000000000000000000000000000000000000000000000");

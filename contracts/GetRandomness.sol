@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./libraries/Policy.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol"; // test version. use random number for test
 
 contract GetRandomness is VRFConsumerBase {

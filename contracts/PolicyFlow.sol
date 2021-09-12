@@ -104,39 +104,64 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
             uint256 policyOrder = userPolicy[_userAddress][i];
 
             bytes32 policyid = policyOrderList[policyOrder];
-            // string memory s_policyId = bytes32ToStr(policyid);
-            uint256 status = uint256(policyList[policyid].status);
+
             string memory isUsed = policyList[policyid].isUsed
                 ? "used"
                 : "not used";
-            result = string(
-                abi.encodePacked(
-                    result,
-                    string(
-                        abi.encodePacked(
-                            "\nPolicy",
-                            i.toString(),
-                            ": \n{PolicyId: ",
-                            bytes32ToString(policyid),
-                            ", \nProductId: ",
-                            policyList[policyid].productId.toString(),
-                            ", \nbuyerAddress: ",
-                            addressToString(policyList[policyid].buyerAddress),
-                            ", \npremium: ",
-                            (policyList[policyid].premium / 10**18).toString(),
-                            ", \npayoff: ",
-                            (policyList[policyid].payoff / 10**18).toString(),
-                            ", \nstatus: ",
-                            status.toString(),
-                            ", \nisUsed: ",
-                            isUsed,
-                            ", \ndelay results: ",
-                            policyList[policyid].delayResult.toString(),
-                            "}"
-                        )
-                    )
-                )
+
+            string memory result1 = encodePack1(
+                i,
+                policyid,
+                policyList[policyid].productId,
+                policyList[policyid].buyerAddress
             );
+            string memory result2 = encodePack2(
+                policyList[policyid].premium,
+                policyList[policyid].payoff,
+                policyList[policyid].purchaseDate,
+                policyList[policyid].departureDate,
+                policyList[policyid].landingDate,
+                uint256(policyList[policyid].status),
+                isUsed,
+                policyList[policyid].delayResult
+            );
+
+            result = string(abi.encodePacked(result1, result2));
+
+            // result = string(
+            //     abi.encodePacked(
+            //         result,
+            //         string(
+            //             abi.encodePacked(
+            //                 "\nPolicy",
+            //                 i.toString(),
+            //                 ": \n{PolicyId: ",
+            //                 bytes32ToString(policyid),
+            //                 ", \nProductId: ",
+            //                 policyList[policyid].productId.toString(),
+            //                 ", \nBuyerAddress: ",
+            //                 addressToString(policyList[policyid].buyerAddress),
+            //                 ", \nPremium: ",
+            //                 (policyList[policyid].premium / 10**18).toString(),
+            //                 ", \nPayoff: ",
+            //                 (policyList[policyid].payoff / 10**18).toString(),
+            //                 ", \nPurchaseDate: ",
+            //                 (policyList[policyid].purchaseDate).toString(),
+            //                 ", \nDepartureDate: ",
+            //                 (policyList[policyid].departureDate).toString(),
+            //                 ", \nLandingDate: ",
+            //                 (policyList[policyid].landingDate).toString(),
+            //                 ", \nStatus: ",
+            //                 uint256(policyList[policyid].status).toString(),
+            //                 ", \nIsUsed: ",
+            //                 isUsed,
+            //                 ", \nDelay Results: ",
+            //                 policyList[policyid].delayResult.toString(),
+            //                 "}"
+            //             )
+            //         )
+            //     )
+            // );
         }
         return result;
     }
@@ -163,7 +188,10 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
             address _owner,
             uint256 _premium,
             uint256 _payoff,
-            uint256 _departureDate
+            uint256 _purchaseDate,
+            uint256 _departureDate,
+            uint256 _landingDate,
+            uint256 _policyStatus
         )
     {
         bytes32 policyId = policyOrderList[_count];
@@ -173,7 +201,10 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
             policyList[policyId].buyerAddress,
             policyList[policyId].premium,
             policyList[policyId].payoff,
-            policyList[policyId].departureDate
+            policyList[policyId].purchaseDate,
+            policyList[policyId].departureDate,
+            policyList[policyId].landingDate,
+            uint256(policyList[policyId].status)
         );
     }
 
@@ -248,7 +279,8 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         uint256 _productId,
         uint256 _premium,
         uint256 _payoff,
-        uint256 _departureDate
+        uint256 _departureDate,
+        uint256 _landingDate
     ) public returns (bytes32 _policyId) {
         // Check the buying time not too close to the departure time
         require(
@@ -276,6 +308,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
             _payoff,
             TEMP_purchaseDate,
             _departureDate,
+            _landingDate,
             PolicyStatus.INI,
             false,
             404
@@ -342,6 +375,10 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         address _userAddress,
         bytes32 _policyId
     ) public {
+        require(
+            block.timestamp >= policyList[_policyId].landingDate,
+            "can only claim a policy after its landing"
+        );
         insurancePool.updateWhenExpire(_premium, _payoff);
         policyList[_policyId].status = PolicyStatus.EXPIRED;
         emit PolicyExpired(_policyId, _userAddress);
@@ -359,6 +396,10 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         address _userAddress,
         bytes32 _policyId
     ) public {
+        require(
+            block.timestamp >= policyList[_policyId].landingDate,
+            "can only claim a policy after its landing"
+        );
         insurancePool.payClaim(_premium, _payoff, _userAddress);
         policyList[_policyId].status = PolicyStatus.CLAIMED;
         emit PolicyClaimed(_policyId, _userAddress);
@@ -515,5 +556,58 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
 
         payoff = payoff * 1e18;
         return payoff;
+    }
+
+    function encodePack1(
+        uint256 _order,
+        bytes32 _policyId,
+        uint256 _productId,
+        address _userAddress
+    ) internal pure returns (string memory _result1) {
+        _result1 = string(
+            abi.encodePacked(
+                "\nPolicy",
+                _order.toString(),
+                ": \n{PolicyId: ",
+                bytes32ToString(_policyId),
+                ", \nProductId: ",
+                _productId.toString(),
+                ", \nBuyerAddress: ",
+                addressToString(_userAddress)
+            )
+        );
+    }
+
+    function encodePack2(
+        uint256 _premium,
+        uint256 _payoff,
+        uint256 _purchaseDate,
+        uint256 _departureDate,
+        uint256 _landingDate,
+        uint256 _status,
+        string memory _isUsed,
+        uint256 _delayResult
+    ) internal pure returns (string memory _result2) {
+        _result2 = string(
+            abi.encodePacked(
+                ", \nPremium: ",
+                (_premium / 10**18).toString(),
+                ", \nPayoff: ",
+                (_payoff / 10**18).toString(),
+                ", \nPurchaseDate: ",
+                (_purchaseDate).toString(),
+                ", \nDepartureDate: ",
+                (_departureDate).toString(),
+                ", \nLandingDate: ",
+                (_landingDate).toString(),
+                ", \nStatus: ",
+                uint256(_status).toString(),
+                ", \nIsUsed: ",
+                _isUsed,
+                ", \nDelay Results: ",
+                _delayResult.toString(),
+                "}"
+            )
+        );
     }
 }

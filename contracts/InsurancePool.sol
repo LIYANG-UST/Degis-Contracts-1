@@ -216,7 +216,7 @@ contract InsurancePool {
     function pendingDegis(address _userAddress)
         external
         view
-        onlyValidAddress
+        onlyValidAddress(_userAddress)
         returns (uint256)
     {
         if (block.number < poolInfo.lastRewardBlock) return 0;
@@ -370,7 +370,7 @@ contract InsurancePool {
     function transferOwnerShip(address _newOwner)
         public
         onlyOwner
-        onlyValidAddress
+        onlyValidAddress(_newOwner)
     {
         emit OwnerChanged(owner, _newOwner);
         owner = _newOwner;

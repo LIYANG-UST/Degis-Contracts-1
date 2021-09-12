@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-// import "./libraries/NFTInfo.sol";
 import "./interfaces/IPolicyFlow.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "./libraries/ToStrings.sol";
@@ -11,22 +10,16 @@ contract PolicyToken is ERC721 {
     address public owner;
     using Strings for uint256;
 
-    enum PolicyStatus {
-        INI,
-        SOLD,
-        DECLINED,
-        EXPIRED,
-        CLAIMED
-    }
-
     struct PolicyTokenURIParam {
         uint256 productId;
         bytes32 policyId;
+        uint256 totalOrder;
         address owner;
         uint256 premium;
         uint256 payoff;
         uint256 purchaseDate;
-        uint256 expiryDate;
+        uint256 departureDate;
+        uint256 landingDate;
         uint256 status;
     }
 
@@ -34,7 +27,9 @@ contract PolicyToken is ERC721 {
 
     uint256 public _nextId;
 
-    constructor(IPolicyFlow _policyFlow) ERC721("DegisPolicyToken", "DEGISPT") {
+    constructor(IPolicyFlow _policyFlow)
+        ERC721("DegisPolicyToken2", "DEGISPT")
+    {
         _nextId = 1;
         policyFlow = _policyFlow;
     }
@@ -74,7 +69,10 @@ contract PolicyToken is ERC721 {
             address _owner,
             uint256 _premium,
             uint256 _payoff,
-            uint256 _expiryDate
+            uint256 _purchaseDate,
+            uint256 _departureDate,
+            uint256 _landingDate,
+            uint256 _status
         ) = policyFlow.getPolicyInfoByCount(tokenId);
 
         // uint256 _productId = policyFlow.policyList[_policyId].productId;
@@ -87,12 +85,14 @@ contract PolicyToken is ERC721 {
                 PolicyTokenURIParam(
                     _productId,
                     _policyId,
+                    tokenId,
                     _owner,
                     _premium,
                     _payoff,
-                    100000,
-                    _expiryDate,
-                    1
+                    _purchaseDate,
+                    _departureDate,
+                    _landingDate,
+                    _status
                 )
             );
     }
@@ -106,17 +106,31 @@ contract PolicyToken is ERC721 {
         return
             string(
                 abi.encodePacked(
-                    "product id: ",
+                    "Product id: ",
                     _params.productId.toString(),
-                    ", policy id: ",
+                    ",",
+                    "Policy id: ",
                     byToString(_params.policyId),
-                    ", buyerAddress: ",
+                    ",",
+                    "Total Order: ",
+                    _params.totalOrder.toString(),
+                    ",",
+                    "BuyerAddress: ",
                     addressToString(_params.owner),
-                    "premium:",
+                    "Premium:",
                     (_params.premium / 10**18).toString(),
                     ",",
-                    "payoff:",
+                    "Payoff:",
                     (_params.payoff / 10**18).toString(),
+                    ",",
+                    "PurchaseDate:",
+                    _params.purchaseDate.toString(),
+                    ",",
+                    "DepartureDate:",
+                    _params.departureDate.toString(),
+                    ",",
+                    "LandingDate:",
+                    _params.landingDate.toString(),
                     ",",
                     "PolicyStatus:",
                     status.toString(),

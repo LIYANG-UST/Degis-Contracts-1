@@ -2,6 +2,14 @@
 pragma solidity ^0.8.0;
 
 interface IPolicyFlow {
+    enum PolicyStatus {
+        INI,
+        SOLD,
+        DECLINED,
+        EXPIRED,
+        CLAIMED
+    }
+
     struct policyInfo {
         uint256 productId;
         address buyerAddress;
@@ -57,6 +65,9 @@ interface IPolicyFlow {
             bytes32,
             uint256,
             address,
+            uint256,
+            uint256,
+            uint256,
             uint256,
             uint256,
             uint256
