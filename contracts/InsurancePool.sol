@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/contracts/PRBMathUD60x18.sol";
 import "./interfaces/IEmergencyPool.sol";
+import "./interfaces/IDegisBar.sol";
 
 contract InsurancePool {
     using PRBMathUD60x18 for uint256;
@@ -36,6 +37,7 @@ contract InsurancePool {
     IERC20 public USDC_TOKEN;
     IEmergencyPool public emergencyPool;
     ILPToken public DLPToken;
+    IDegisBar degisBar;
 
     // ****************** State variables ****************** //
 

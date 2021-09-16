@@ -1,20 +1,27 @@
+import { AssertionError } from 'chai';
 import { tokens, ether, ETHER_ADDRESS, EVM_REVERT, wait } from './helpers'
 
 const DegisToken = artifacts.require('./DegisToken');
+const Mock_USD = artifacts.require('./MockUSD');
 const InsurancePool = artifacts.require('./InsurancePool');
-const MOCK_USDC_ADDRESS = '0x6e95Fc19611cebD936B22Fd1A15D53d98bb31dAF';
-const DEGIS_PER_BLOCK = 10;
+const EmergencyPool = artifacts.require('./EmergencyPool');
+const LPToken = artifacts.require('./LPToken');
+
+const DEGIS_PER_BLOCK = web3.utils.toBN(10 ** 18);
 
 require('chai')
     .use(require('chai-as-promised'))
     .should()
 
-contract('InsurancePool', ([deployer, user]) => {
-    let insurancepool, degistoken;
+contract('InsurancePool', ([deployer, user, other]) => {
+    let lptoken, usdc, emergency, insurancepool, degistoken;
 
     beforeEach(async () => {
+        lptoken = await LPToken.new();
         degistoken = await DegisToken.new();
-        insurancepool = await InsurancePool.new(100, degistoken.address, MOCK_USDC_ADDRESS, DEGIS_PER_BLOCK);
+        usdc = await Mock_USD.new();
+        emergency = await EmergencyPool.new(usdc.address);
+        insurancepool = await InsurancePool.new(100, degistoken.address, emergency.address, lptoken.address, usdc.address, DEGIS_PER_BLOCK);
         await degistoken.passMinterRole(insurancepool.address, { from: deployer });
     })
 
@@ -31,19 +38,20 @@ contract('InsurancePool', ([deployer, user]) => {
                 expect(Number(await degistoken.totalSupply())).to.eq(0)
             })
 
-            it('dBank should have Token minter role', async () => {
+            it('insurance pool should have Token minter role', async () => {
                 expect(await degistoken.minter()).to.eq(insurancepool.address)
             })
         })
-    })
-    describe('failure', () => {
-        it('passing minter role should be rejected', async () => {
-            await degistoken.passMinterRole(user, { from: deployer }).should.be.rejectedWith(EVM_REVERT)
-        })
+    
+        describe('failure', () => {
+            it('passing minter role should be rejected', async () => {
+                await degistoken.passMinterRole(user, { from: other }).should.be.rejectedWith(EVM_REVERT)
+            })
 
-        it('tokens minting should be rejected', async () => {
-            await degistoken.mint(user, '1', { from: deployer }).should.be.rejectedWith(EVM_REVERT) //unauthorized minter
+            it('tokens minting should be rejected', async () => {
+                await degistoken.mint(user, '1', { from: deployer }).should.be.rejectedWith(EVM_REVERT) //unauthorized minter
+            })
         })
     })
+
 })
-

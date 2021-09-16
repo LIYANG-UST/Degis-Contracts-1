@@ -10,7 +10,7 @@ const EmergencyPool = artifacts.require('EmergencyPool')
 // Constant Addresses
 const usdcadd_rinkeby = "0x6e95Fc19611cebD936B22Fd1A15D53d98bb31dAF";
 const policy_token = "0x2aCE3BdE730B1fF003cDa21aeeA1Db33b0F04ffC";
-const degis_token = "0xa5DaDD05F67996EC2428d07f52C9D3852F18c759";
+const degis_token = "0xD51e2fb717A0DDC55aec9990b6F3F8B76D4922D9";
 const lptoken = "0xFa0Aa822581fD50d3D8675F52A719919F54f1eBB";
 
 function sleep(ms) {
@@ -39,7 +39,7 @@ module.exports = async callback => {
         const policy_nft = await PolicyToken.at(policy_token);
         console.log("\n Policy NFT Token Address:", policy_nft.address);
 
-        const lp_token = await LPToken.at(lptoken);
+        const lp_token = await LPToken.deployed();
         console.log("\n LP Token address:", lp_token.address);
 
         const degis = await DegisToken.at(degis_token);
