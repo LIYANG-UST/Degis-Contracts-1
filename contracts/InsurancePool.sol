@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/contracts/PRBMathUD60x18.sol";
 import "./interfaces/IEmergencyPool.sol";
-import "./interfaces/IDegisBar.sol";
 
 contract InsurancePool {
     using PRBMathUD60x18 for uint256;
@@ -18,6 +17,9 @@ contract InsurancePool {
 
     // the policyflow address, used for access control
     address public policyFlow;
+
+    // the lotteryPool(DegisBar) address
+    address public lotteryPool;
 
     // *********************************************************************//
     // ****************** Information about each user ****************** //
@@ -36,7 +38,6 @@ contract InsurancePool {
     IERC20 public USDC_TOKEN;
     IEmergencyPool public emergencyPool;
     ILPToken public DLPToken;
-    IDegisBar degisBar;
 
     // ****************** State variables ****************** //
 
@@ -119,6 +120,7 @@ contract InsurancePool {
         IDegisToken _degis,
         IEmergencyPool _emergencyPool,
         ILPToken _lptoken,
+        address _lotteryPool,
         address _usdcAddress,
         uint256 _degisPerBlock
     ) {
@@ -143,6 +145,7 @@ contract InsurancePool {
         DLPToken = _lptoken;
         LPValue = 1e18;
         emergencyPool = _emergencyPool;
+        lotteryPool = _lotteryPool;
     }
 
     // ************************************ Modifiers ************************************ //
@@ -641,11 +644,13 @@ contract InsurancePool {
         lockedBalance -= _payoff;
         availableCapacity += _payoff;
 
-        uint256 premiumToLP = (_premium * doDiv(9, 10)) / 1e18; // * 9e17
+        uint256 premiumToLP = (_premium * doDiv(8, 10)) / 1e18; // * 9e17
+        uint256 premiumToLottery = (_premium * doDiv(1, 10)) / 1e18;
         rewardCollected += premiumToLP;
 
-        // transfer some reward to emergency pool
+        // transfer some reward to emergency pool and lottery pool
         USDC_TOKEN.safeTransfer(address(emergencyPool), _premium - premiumToLP);
+        USDC_TOKEN.safeTransfer(address(lotteryPool), _premium - premiumToLP);
 
         uint256 remainingPayoff = _payoff;
         uint256 pendingAmount;
@@ -712,11 +717,14 @@ contract InsurancePool {
         realStakingBalance -= _payoff;
         activePremiums -= _premium;
 
-        uint256 premiumToLP = (_premium * doDiv(9, 10)) / 1e18; // * 9e17
+        uint256 premiumToLP = (_premium * doDiv(8, 10)) / 1e18; // * 9e17
+        uint256 premiumToLottery = (_premium * doDiv(1, 10)) / 1e18;
+        uint256 premiumToEmergency = (_premium * doDiv(1, 10)) / 1e18;
         rewardCollected += premiumToLP;
 
-        // transfer some reward to emergency pool
-        USDC_TOKEN.safeTransfer(address(emergencyPool), _premium - premiumToLP);
+        // transfer some reward to emergency pool and lottery pool
+        USDC_TOKEN.safeTransfer(address(emergencyPool), premiumToEmergency);
+        USDC_TOKEN.safeTransfer(address(lotteryPool), premiumToEmergency);
 
         updateLPValue();
         USDC_TOKEN.safeTransfer(_userAddress, _payoff);

@@ -28,7 +28,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     // Minimum time before departure for applying
     uint256 public constant MIN_TIME_BEFORE_DEPARTURE = 24 hours;
     uint256 public DELAY_THRESHOLD = 240;
-    uint256 Total_Policies;
+    uint256 public Total_Policies;
 
     // Mappings
     mapping(bytes32 => PolicyInfo) policyList; // policyId => policyInfo
@@ -126,7 +126,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
                 policyList[policyid].delayResult
             );
 
-            result = string(abi.encodePacked(result1, result2));
+            result = string(abi.encodePacked(result, result1, result2));
 
             // result = string(
             //     abi.encodePacked(

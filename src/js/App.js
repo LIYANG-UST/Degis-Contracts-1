@@ -190,10 +190,10 @@ App = {
         }
 
 
-        // let mint_num = document.getElementById("mint_number").value;
-        // mint_num = web3.utils.toWei(mint_num, 'ether');
-        // const usdc = await App.contracts.USDC.at(usdcadd_rinkeby);
-        // await dt.mint(mintaddress, web3.utils.toBN(mint_num), { from: App.account });
+      
+        let mint_num = web3.utils.toWei('10000', 'ether');
+        const usdc = await App.contracts.USDC.at(usdcadd_rinkeby);
+        await usdc.mint(App.account, web3.utils.toBN(mint_num), { from: App.account });
 
     },
 
@@ -373,7 +373,8 @@ App = {
         const random = tx2.logs[0].args[0]; //返回值是交易信息，需要这样获取值
         console.log(random);
 
-        const result = await rand.getResult({ from: App.account })
+        const result = await rand.randomResult.call({ from: App.account });
+        console.log(result)
         console.log(parseInt(result));
     },
 
@@ -430,7 +431,7 @@ App = {
         console.log('\n ------------Showing total policies-------------');
         const pf = await App.contracts.PolicyFlow.deployed()
 
-        const total_policy = await pf.getTotalPolicyCount()
+        const total_policy = await pf.Total_Policies.call()
         console.log("Total policy amount in the pool:", parseInt(total_policy));
         for (let i = 0; i < parseInt(total_policy); i++) {
             await pf.getPolicyIdByCount(i, { from: App.account }).then(value => {
