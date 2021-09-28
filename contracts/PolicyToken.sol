@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./interfaces/IPolicyFlow.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "./libraries/ToStrings.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract PolicyToken is ERC721 {
-    address public owner;
+contract PolicyToken is ERC721, Ownable {
     using Strings for uint256;
 
     struct PolicyTokenURIParam {
@@ -42,7 +42,7 @@ contract PolicyToken is ERC721 {
         return _nextId;
     }
 
-    function mintPolicyToken(address _to) public {
+    function mintPolicyToken(address _to) public onlyOwner {
         uint256 tokenId = _nextId++;
         _mint(_to, tokenId);
     }

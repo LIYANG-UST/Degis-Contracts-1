@@ -43,21 +43,21 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         IPolicyToken _policyToken,
         address _oracleAddress
     ) {
-        // set owner address
+        // Set owner address
         owner = msg.sender;
 
-        // set two interfaces' addresses
+        // Set two interfaces' addresses
         insurancePool = _insurancePool;
         policyToken = _policyToken;
 
-        // set oracle
+        // Set oracle address
         oracleAddress = _oracleAddress;
         jobId = "cef74a7ff7ea4194ab97f00c89abef6b";
 
         setPublicChainlinkToken();
         fee = 1 * 10**18; // 1 LINK
 
-        // Initialized the count (do not need to initialize)
+        // Initialize the count (actually do not need to initialize)
         Total_Policies = 0;
     }
 
@@ -332,79 +332,6 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         return TEMP_policyId;
     }
 
-    /**
-     * @notice check the policy and then determine whether we can afford it
-     * @param _premium: the premium of the policy sold
-     * @param _payoff: the payoff of the policy sold
-     * @param _userAddress: user's address
-     * @param _policyId: the unique policy ID
-     */
-    function policyCheck(
-        uint256 _premium,
-        uint256 _payoff,
-        address _userAddress,
-        bytes32 _policyId
-    ) public {
-        // Whether there are enough capacity in the pool
-        bool _isAccepted = insurancePool.updateWhenBuy(
-            _premium,
-            _payoff,
-            _userAddress
-        );
-        if (_isAccepted) {
-            policyList[_policyId].status = PolicyStatus.SOLD;
-            emit PolicySold(_policyId, _userAddress);
-
-            policyToken.mintPolicyToken(_userAddress);
-        } else {
-            policyList[_policyId].status = PolicyStatus.DECLINED;
-            emit PolicyDeclined(_policyId, _userAddress);
-        }
-    }
-
-    /**
-     * @notice update the policy when it is expired
-     * @param _premium: the premium of the policy sold
-     * @param _payoff: the payoff of the policy sold
-     * @param _userAddress: user's address
-     * @param _policyId: the unique policy ID
-     */
-    function policyExpired(
-        uint256 _premium,
-        uint256 _payoff,
-        address _userAddress,
-        bytes32 _policyId
-    ) public {
-        require(
-            block.timestamp >= policyList[_policyId].landingDate,
-            "can only claim a policy after its landing"
-        );
-        insurancePool.updateWhenExpire(_premium, _payoff);
-        policyList[_policyId].status = PolicyStatus.EXPIRED;
-        emit PolicyExpired(_policyId, _userAddress);
-    }
-
-    /**
-     * @notice update the policy when it is claimed
-     * @param _payoff: the payoff of the policy sold
-     * @param _userAddress: user's address
-     * @param _policyId: the unique policy ID
-     */
-    function policyClaimed(
-        uint256 _premium,
-        uint256 _payoff,
-        address _userAddress,
-        bytes32 _policyId
-    ) public {
-        require(
-            block.timestamp >= policyList[_policyId].landingDate,
-            "can only claim a policy after its landing"
-        );
-        insurancePool.payClaim(_premium, _payoff, _userAddress);
-        policyList[_policyId].status = PolicyStatus.CLAIMED;
-        emit PolicyClaimed(_policyId, _userAddress);
-    }
-
     /** @notice calculate the flight status
      *  @param _policyOrder The total order of the policy
      *  @param _flightNumber The flight number
@@ -412,13 +339,13 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
      *  @param _path Which data in json needs to get
      *  @param _forceUpdate Owner can force to update
      */
-    function calculateFlightStatus(
+    function newClaimRequest(
         uint256 _policyOrder,
         string memory _flightNumber,
         string memory _date,
         string memory _path,
         bool _forceUpdate
-    ) public {
+    ) public onlyOwner {
         bytes32 _policyId = policyOrderList[_policyOrder];
         require(
             (!policyList[_policyId].isUsed) ||
@@ -444,6 +371,36 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         );
         requestList[requestId] = _policyOrder;
         policyList[_policyId].isUsed = true;
+    }
+
+    /**
+     * @notice check the policy and then determine whether we can afford it
+     * @param _premium: the premium of the policy sold
+     * @param _payoff: the payoff of the policy sold
+     * @param _userAddress: user's address
+     * @param _policyId: the unique policy ID
+     */
+    function policyCheck(
+        uint256 _premium,
+        uint256 _payoff,
+        address _userAddress,
+        bytes32 _policyId
+    ) internal {
+        // Whether there are enough capacity in the pool
+        bool _isAccepted = insurancePool.updateWhenBuy(
+            _premium,
+            _payoff,
+            _userAddress
+        );
+        if (_isAccepted) {
+            policyList[_policyId].status = PolicyStatus.SOLD;
+            emit PolicySold(_policyId, _userAddress);
+
+            policyToken.mintPolicyToken(_userAddress);
+        } else {
+            policyList[_policyId].status = PolicyStatus.DECLINED;
+            emit PolicyDeclined(_policyId, _userAddress);
+        }
     }
 
     /**
@@ -535,6 +492,50 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         }
 
         emit FulfilledOracleRequest(policyId, _requestId);
+    }
+
+    /**
+     * @notice update the policy when it is expired
+     * @param _premium: the premium of the policy sold
+     * @param _payoff: the payoff of the policy sold
+     * @param _userAddress: user's address
+     * @param _policyId: the unique policy ID
+     */
+    function policyExpired(
+        uint256 _premium,
+        uint256 _payoff,
+        address _userAddress,
+        bytes32 _policyId
+    ) internal {
+        require(
+            block.timestamp >= policyList[_policyId].landingDate,
+            "can only claim a policy after its landing"
+        );
+        insurancePool.updateWhenExpire(_premium, _payoff);
+        policyList[_policyId].status = PolicyStatus.EXPIRED;
+        emit PolicyExpired(_policyId, _userAddress);
+    }
+
+    /**
+     * @notice update the policy when it is claimed
+     * @param _premium: the premium of the policy sold
+     * @param _payoff: the payoff of the policy sold
+     * @param _userAddress: user's address
+     * @param _policyId: the unique policy ID
+     */
+    function policyClaimed(
+        uint256 _premium,
+        uint256 _payoff,
+        address _userAddress,
+        bytes32 _policyId
+    ) internal {
+        require(
+            block.timestamp >= policyList[_policyId].landingDate,
+            "can only claim a policy after its landing"
+        );
+        insurancePool.payClaim(_premium, _payoff, _userAddress);
+        policyList[_policyId].status = PolicyStatus.CLAIMED;
+        emit PolicyClaimed(_policyId, _userAddress);
     }
 
     /**

@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/contracts/PRBMathUD60x18.sol";
 import "./interfaces/IEmergencyPool.sol";
+import "./interfaces/IDegisLottery.sol";
 
 contract InsurancePool {
     using PRBMathUD60x18 for uint256;
@@ -17,9 +18,6 @@ contract InsurancePool {
 
     // the policyflow address, used for access control
     address public policyFlow;
-
-    // the lotteryPool(DegisBar) address
-    address public lotteryPool;
 
     // *********************************************************************//
     // ****************** Information about each user ****************** //
@@ -38,6 +36,7 @@ contract InsurancePool {
     IERC20 public USDC_TOKEN;
     IEmergencyPool public emergencyPool;
     ILPToken public DLPToken;
+    IDegisLottery public degisLottery;
 
     // ****************** State variables ****************** //
 
@@ -120,7 +119,7 @@ contract InsurancePool {
         IDegisToken _degis,
         IEmergencyPool _emergencyPool,
         ILPToken _lptoken,
-        address _lotteryPool,
+        IDegisLottery _degisLottery,
         address _usdcAddress,
         uint256 _degisPerBlock
     ) {
@@ -145,7 +144,7 @@ contract InsurancePool {
         DLPToken = _lptoken;
         LPValue = 1e18;
         emergencyPool = _emergencyPool;
-        lotteryPool = _lotteryPool;
+        degisLottery = _degisLottery;
     }
 
     // ************************************ Modifiers ************************************ //
@@ -650,7 +649,7 @@ contract InsurancePool {
 
         // transfer some reward to emergency pool and lottery pool
         USDC_TOKEN.safeTransfer(address(emergencyPool), _premium - premiumToLP);
-        USDC_TOKEN.safeTransfer(address(lotteryPool), _premium - premiumToLP);
+        USDC_TOKEN.safeTransfer(address(degisLottery), _premium - premiumToLP);
 
         uint256 remainingPayoff = _payoff;
         uint256 pendingAmount;
@@ -724,7 +723,10 @@ contract InsurancePool {
 
         // transfer some reward to emergency pool and lottery pool
         USDC_TOKEN.safeTransfer(address(emergencyPool), premiumToEmergency);
-        USDC_TOKEN.safeTransfer(address(lotteryPool), premiumToEmergency);
+
+        USDC_TOKEN.safeTransfer(address(degisLottery), premiumToLottery);
+        uint256 currentLotteryId = degisLottery.viewCurrentLotteryId();
+        degisLottery.injectFunds(currentLotteryId, premiumToLottery);
 
         updateLPValue();
         USDC_TOKEN.safeTransfer(_userAddress, _payoff);
