@@ -75,11 +75,6 @@ contract PolicyToken is ERC721, Ownable {
             uint256 _status
         ) = policyFlow.getPolicyInfoByCount(tokenId);
 
-        // uint256 _productId = policyFlow.policyList[_policyId].productId;
-        // address _owner = policyFlow.policyList[_policyId].userAddress;
-        // uint256 _premium = policyFlow.policyList[_policyId].premium;
-        // uint256 _payoff = policyFlow.policyList[_policyId].payoff;
-        // uint256 _expiryDate = policyFlow.policyList[_policyId].expiryDate;
         return
             constructTokenURI(
                 PolicyTokenURIParam(

@@ -1,200 +1,255 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>A Naive Test Page for Degis Insurance</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="./index.css">
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css"
+    />
+    <link rel="stylesheet" href="./index.css" />
 
-    <link href="https://fonts.googleapis.com/css2?family=Nunito&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap" rel="stylesheet">
-</head>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap"
+      rel="stylesheet"
+    />
+  </head>
 
-<body>
-
-    <img class="rounded mx-auto d-block" src="img/verified.png" alt="" style="width:100px" />
+  <body>
+    <img
+      class="rounded mx-auto d-block"
+      src="img/verified.png"
+      alt=""
+      style="width: 100px"
+    />
 
     <h1 style="text-align: center">
-        Degis is an ecosystem for decentralized insurance
+      Degis is an ecosystem for decentralized insurance
     </h1>
-    <br>
+    <br />
     <div class="border" id="initpart">
-        <button type="button" class="btn btn-primary btn-init">Connect to wallet</button>
-        <br>
-        <br>
-        <p id="account">Account: </p>
-        <p id="balance">Balance: </p>
-        <p id="pooladdress">Pool Address: </p>
-        <br>
-        <button type="button" class="btn btn-primary btn-updatepooladdress">Update Pool Address</button>
+      <button type="button" class="btn btn-primary btn-init">
+        Connect to wallet
+      </button>
+      <br />
+      <br />
+      <p id="account">Account:</p>
+      <p id="balance">Balance:</p>
+      <p id="pooladdress">Pool Address:</p>
+      <br />
+      <button type="button" class="btn btn-primary btn-updatepooladdress">
+        Update Pool Address
+      </button>
     </div>
 
     <div class="border" id="poolpart">
-        <h2>Pool Info</h2>
-        <br>
-        <button type="button" class="btn btn-primary btn-getpoolinfo">Show the pool info</button>
-        <!-- <button type="button" class="btn btn-primary btn-changeCollateralFactor">Change Collateral Factor</button> -->
+      <h2>Pool Info</h2>
+      <br />
+      <button type="button" class="btn btn-primary btn-getpoolinfo">
+        Show the pool info
+      </button>
+      <!-- <button type="button" class="btn btn-primary btn-changeCollateralFactor">Change Collateral Factor</button> -->
     </div>
 
     <div class="border" id="updatepart">
-        <h2 class="mx-auto">Update Policy Flow Address</h2>
-        <p>为InsurancePool和PolicyToken合约设置新的PolicyFlow地址</p>
-        <button type="button" class="btn btn-primary btn-updatepolicyflow">Update Policy Flow Address</button>
+      <h2 class="mx-auto">Update Policy Flow Address</h2>
+      <p>为InsurancePool和PolicyToken合约设置新的PolicyFlow地址</p>
+      <button type="button" class="btn btn-primary btn-updatepolicyflow">
+        Update Policy Flow Address
+      </button>
     </div>
 
     <div class="border" id="mintnftpart">
-        <h2 class="mx-auto">Mint NFT Policy Token</h2>
-        <button type="button" class="btn btn-primary btn-mintnft">press to mint NFT</button>
+      <h2 class="mx-auto">Mint NFT Policy Token</h2>
+      <button type="button" class="btn btn-primary btn-mintnft">
+        press to mint NFT
+      </button>
     </div>
 
     <div id="content">
-        <div class="border" id="mintpart">
-            <form>
-                <h2 class="mx-auto">Pass Minter Role (Degis & LP)</h2>
-                <!-- <div class="form-group">
+      <div class="border" id="mintpart">
+        <form>
+          <h2 class="mx-auto">Pass Minter Role (Degis & LP)</h2>
+          <!-- <div class="form-group">
                     <label for="mint_number">输入铸造Degis数量</label>
                     <input class="form-control" type="text" id="mint_number" placeholder="100">
                     <small id="mint_number_help" class="form-text text-muted">decimals:18</small>
                 </div> -->
-                <div class="form-group">
-                    <label for="minter">输入新的Minter地址(默认转换给insurancePool合约)</label>
-                    <input class="form-control" type="text" id="minter">
-                    <small id="minter_help" class="form-text text-muted">insurancePool address</small>
-                </div>
-                <button type="button" class="btn btn-primary btn-mint">press to pass minter role</button>
+          <div class="form-group">
+            <label for="minter"
+              >输入新的Minter地址(默认转换给insurancePool合约)</label
+            >
+            <input class="form-control" type="text" id="minter" />
+            <small id="minter_help" class="form-text text-muted"
+              >insurancePool address</small
+            >
+          </div>
+          <button type="button" class="btn btn-primary btn-mint">
+            press to pass minter role
+          </button>
+        </form>
+      </div>
 
-            </form>
-        </div>
+      <div class="border" id="stakepart">
+        <form>
+          <h2 class="mx-auto">Stake / Unstake</h2>
+          <div class="form-group">
+            <label for="stake_number">输入质押/提取的USDC数量</label>
+            <input class="form-control" type="text" id="stake_number" />
+            <small id="stake_number_help" class="form-text text-muted"
+              >decimals:18</small
+            >
+          </div>
+          <button type="button" class="btn btn-primary btn-stake">
+            Press to stake
+          </button>
+          <button type="button" class="btn btn-primary btn-unstake">
+            Press to unstake
+          </button>
+          <button type="button" class="btn btn-primary btn-allowance">
+            Press to check allowance
+          </button>
+        </form>
+      </div>
 
-        <div class="border" id="stakepart">
-            <form>
-                <h2 class="mx-auto">Stake / Unstake</h2>
-                <div class="form-group">
-                    <label for="stake_number">输入质押/提取的USDC数量</label>
-                    <input class="form-control" type="text" id="stake_number">
-                    <small id="stake_number_help" class="form-text text-muted">decimals:18</small>
-                </div>
-                <button type="button" class="btn btn-primary btn-stake">Press to stake</button>
-                <button type="button" class="btn btn-primary btn-unstake">Press to unstake</button>
-                <button type="button" class="btn btn-primary btn-allowance">Press to check allowance</button>
-            </form>
-        </div>
-
-        <div class="border" id="lppart">
-            <button type="button" class="btn btn-primary btn-LPInfo">Show my liquidity</button>
-            <!-- <div class="alert alert-light" role="alert">
+      <div class="border" id="lppart">
+        <button type="button" class="btn btn-primary btn-LPInfo">
+          Show my liquidity
+        </button>
+        <!-- <div class="alert alert-light" role="alert">
                 LP's asset
             </div> -->
-            <br>
-            <br>
-            <div class="card" style="width: 18rem;">
-                <div class="card-body">
-                    <h5 class="card-title">LP Token
-                    </h5>
-                    <p class="card-text">Show the liquidity part</p>
-                    <p id="lpinfo-show">hello</p>
-                </div>
-            </div>
+        <br />
+        <br />
+        <div class="card" style="width: 18rem">
+          <div class="card-body">
+            <h5 class="card-title">LP Token</h5>
+            <p class="card-text">Show the liquidity part</p>
+            <p id="lpinfo-show">hello</p>
+          </div>
         </div>
+      </div>
 
-        <div class="border" id="harvestpart">
-            <h2 class="mx-auto">Harvest Reward</h2>
-            <br>
-            <button type="button" class="btn btn-primary btn-harvestDegis">Harvest Degis Token</button>
-            <button type="button" class="btn btn-primary btn-harvestPremium">Harvest Premium</button>
-        </div>
+      <div class="border" id="harvestpart">
+        <h2 class="mx-auto">Harvest Reward</h2>
+        <br />
+        <button type="button" class="btn btn-primary btn-harvestDegis">
+          Harvest Degis Token
+        </button>
+        <button type="button" class="btn btn-primary btn-harvestPremium">
+          Harvest Premium
+        </button>
+      </div>
 
-        <div class="border" id="policypart">
-            <form>
-                <h2 class="mx-auto">Buy New Policy</h2>
-                <div class="form-group">
-                    <label for="userAddress">输入被保险人地址</label>
-                    <input class="form-control" type="text" id="userAddress">
-                    <small class="form-text text-muted">eth address for buyer</small>
-                </div>
-                <div class="form-group">
-                    <label for="productId">输入产品id,默认为0</label>
-                    <input class="form-control" type="text" id="productId" placeholder="0">
-                </div>
-                <div class="form-group">
-                    <label for="payoff">输入保额</label>
-                    <input class="form-control" type="text" id="payoff">
-                </div>
-                <div class="form-group">
-                    <label for="premium">保费</label>
-                    <input class="form-control" type="text" id="premium" placeholder="">
-                </div>
-                <button type="button" class="btn btn-primary btn-buy">Press to buy</button>
-                <button type="button" class="btn btn-primary btn-rand">Get randomness</button>
-                <button type="button" class="btn btn-primary btn-totalpolicy">Get total policies in the pool</button>
-            </form>
-        </div>
+      <div class="border" id="policypart">
+        <form>
+          <h2 class="mx-auto">Buy New Policy</h2>
+          <div class="form-group">
+            <label for="userAddress">输入被保险人地址</label>
+            <input class="form-control" type="text" id="userAddress" />
+            <small class="form-text text-muted">eth address for buyer</small>
+          </div>
+          <div class="form-group">
+            <label for="productId">输入产品id,默认为0</label>
+            <input
+              class="form-control"
+              type="text"
+              id="productId"
+              placeholder="0"
+            />
+          </div>
+          <div class="form-group">
+            <label for="payoff">输入保额</label>
+            <input class="form-control" type="text" id="payoff" />
+          </div>
+          <div class="form-group">
+            <label for="premium">保费</label>
+            <input
+              class="form-control"
+              type="text"
+              id="premium"
+              placeholder=""
+            />
+          </div>
+          <button type="button" class="btn btn-primary btn-buy">
+            Press to buy
+          </button>
+          <button type="button" class="btn btn-primary btn-rand">
+            Get randomness
+          </button>
+          <button type="button" class="btn btn-primary btn-totalpolicy">
+            Get total policies in the pool
+          </button>
+        </form>
+      </div>
 
-        <div class="border" id="userpart">
-            <button type="button" class="btn btn-primary btn-userpolicy">Show my policies</button>
-            <!-- <div class="alert alert-light" role="alert">
+      <div class="border" id="userpart">
+        <button type="button" class="btn btn-primary btn-userpolicy">
+          Show my policies
+        </button>
+        <!-- <div class="alert alert-light" role="alert">
                 User's policies
             </div> -->
-            <br>
-            <br>
-            <div class="card" style="width: 50rem;">
-                <div class="card-body">
-                    <h5 class="card-title">Policy Number & Info</h5>
-                    <p id="userpolicy-show">hello</p>
-                </div>
-            </div>
+        <br />
+        <br />
+        <div class="card" style="width: 50rem">
+          <div class="card-body">
+            <h5 class="card-title">Policy Number & Info</h5>
+            <p id="userpolicy-show">hello</p>
+          </div>
         </div>
+      </div>
 
+      <div class="border" id="oraclepart">
+        <form>
+          <h2 class="mx-auto">Request Oracle</h2>
+          <div class="form-group">
+            <label for="fightNumber">输入航班号</label>
+            <input class="form-control" type="text" id="flightNumber" />
+          </div>
+          <div class="form-group">
+            <label for="policyOrder">输入policy order</label>
+            <input class="form-control" type="text" id="policyOrder" />
+          </div>
+          <div class="form-group">
+            <label for="date">输入日期(timestamp)</label>
+            <input class="form-control" type="text" id="date" />
+          </div>
+          <button type="button" class="btn btn-primary btn-oracle">
+            Press to request oracle
+          </button>
+        </form>
+      </div>
 
-        <div class="border" id="oraclepart">
-            <form>
-                <h2 class="mx-auto">Request Oracle</h2>
-                <div class="form-group">
-                    <label for="fightNumber">输入航班号</label>
-                    <input class="form-control" type="text" id="flightNumber">
-                </div>
-                <div class="form-group">
-                    <label for="policyOrder">输入policy order</label>
-                    <input class="form-control" type="text" id="policyOrder">
-                </div>
-                <div class="form-group">
-                    <label for="date">输入日期(timestamp)</label>
-                    <input class="form-control" type="text" id="date">
-                </div>
-                <button type="button" class="btn btn-primary btn-oracle">Press to request oracle</button>
-            </form>
-        </div>
-
-        <div class="border" id="calcpart">
-            <form>
-                <h2 class="mx-auto">Fixed Point Math(18 decimals)</h2>
-                <div class="form-group">
-                    <label for="numerator">输入除数/乘数</label>
-                    <input class="form-control" type="text" id="numerator">
-                </div>
-                <div class="form-group">
-                    <label for="denominator">输入被除数/被乘数</label>
-                    <input class="form-control" type="text" id="denominator">
-                </div>
-                <button type="button" class="btn btn-primary btn-calc">press to calculate</button>
-            </form>
-        </div>
-
-
-
-
+      <div class="border" id="calcpart">
+        <form>
+          <h2 class="mx-auto">Fixed Point Math(18 decimals)</h2>
+          <div class="form-group">
+            <label for="numerator">输入除数/乘数</label>
+            <input class="form-control" type="text" id="numerator" />
+          </div>
+          <div class="form-group">
+            <label for="denominator">输入被除数/被乘数</label>
+            <input class="form-control" type="text" id="denominator" />
+          </div>
+          <button type="button" class="btn btn-primary btn-calc">
+            press to calculate
+          </button>
+        </form>
+      </div>
     </div>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-    <!-- <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script> -->
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script src="js/web3.min.js"></script>
     <script src="js/truffle-contract.js"></script>
     <script src="js/App.js"></script>
-
-</body>
-
+  </body>
 </html>

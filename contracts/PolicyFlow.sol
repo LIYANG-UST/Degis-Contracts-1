@@ -348,6 +348,10 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     ) public onlyOwner {
         bytes32 _policyId = policyOrderList[_policyOrder];
         require(
+            block.timestamp >= policyList[_policyId].landingDate,
+            "can only claim a policy after its landing"
+        );
+        require(
             (!policyList[_policyId].isUsed) ||
                 (_forceUpdate && (msg.sender == owner)),
             "The policy has been final checked, or you need to force update"
@@ -507,10 +511,6 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         address _userAddress,
         bytes32 _policyId
     ) internal {
-        require(
-            block.timestamp >= policyList[_policyId].landingDate,
-            "can only claim a policy after its landing"
-        );
         insurancePool.updateWhenExpire(_premium, _payoff);
         policyList[_policyId].status = PolicyStatus.EXPIRED;
         emit PolicyExpired(_policyId, _userAddress);
@@ -529,10 +529,6 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         address _userAddress,
         bytes32 _policyId
     ) internal {
-        require(
-            block.timestamp >= policyList[_policyId].landingDate,
-            "can only claim a policy after its landing"
-        );
         insurancePool.payClaim(_premium, _payoff, _userAddress);
         policyList[_policyId].status = PolicyStatus.CLAIMED;
         emit PolicyClaimed(_policyId, _userAddress);
