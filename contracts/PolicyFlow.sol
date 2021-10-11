@@ -111,6 +111,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
 
             string memory result1 = encodePack1(
                 i,
+                policyList[policyid].flightNumber,
                 policyid,
                 policyList[policyid].productId,
                 policyList[policyid].buyerAddress
@@ -183,6 +184,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         public
         view
         returns (
+            string memory _flightNumber,
             bytes32 _policyId,
             uint256 _productId,
             address _owner,
@@ -196,6 +198,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     {
         bytes32 policyId = policyOrderList[_count];
         return (
+            policyList[policyId].flightNumber,
             policyId,
             policyList[policyId].productId,
             policyList[policyId].buyerAddress,
@@ -277,6 +280,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     function newApplication(
         address _userAddress,
         uint256 _productId,
+        string memory _flightNumber,
         uint256 _premium,
         uint256 _payoff,
         uint256 _departureDate,
@@ -287,8 +291,9 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
             _departureDate >= block.timestamp + MIN_TIME_BEFORE_DEPARTURE,
             "ERROR::TIME_TO_DEPARTURE_TOO_SMALL"
         );
+
         // Generate the unique policyId
-        bytes32 TEMP_policyId = keccak256(
+        bytes32 policyId = keccak256(
             abi.encodePacked(
                 _userAddress,
                 _productId,
@@ -296,14 +301,20 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
                 Total_Policies
             )
         );
+
+        // Check the policy with the insurance pool status
+        // May be accepted or rejected
+        policyCheck(_payoff, _userAddress, policyId);
+
         uint256 TEMP_purchaseDate = block.timestamp;
 
         // Generate the policy
-        policyList[TEMP_policyId] = PolicyInfo(
+        policyList[policyId] = PolicyInfo(
             _productId,
             _userAddress,
             Total_Policies,
-            TEMP_policyId,
+            _flightNumber,
+            policyId,
             _premium,
             _payoff,
             TEMP_purchaseDate,
@@ -319,17 +330,13 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         // Update the user's policy amount
         userPolicyCount[_userAddress] += 1;
         // Update the policyOrderList
-        policyOrderList[Total_Policies] = TEMP_policyId;
+        policyOrderList[Total_Policies] = policyId;
         // Update total policies
         Total_Policies += 1;
 
-        emit newPolicyApplication(TEMP_policyId, _userAddress);
+        emit newPolicyApplication(policyId, _userAddress);
 
-        // Check the policy with the insurance pool status
-        // May be accepted or rejected
-        policyCheck(_premium, _payoff, _userAddress, TEMP_policyId);
-
-        return TEMP_policyId;
+        return policyId;
     }
 
     /** @notice calculate the flight status
@@ -356,6 +363,11 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
                 (_forceUpdate && (msg.sender == owner)),
             "The policy has been final checked, or you need to force update"
         );
+        require(
+            keccak256(abi.encodePacked(_flightNumber)) ==
+                keccak256(abi.encodePacked(policyList[_policyId].flightNumber)),
+            "wrong flight number provided"
+        );
 
         string memory _url = string(
             abi.encodePacked(
@@ -379,23 +391,18 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
 
     /**
      * @notice check the policy and then determine whether we can afford it
-     * @param _premium: the premium of the policy sold
      * @param _payoff: the payoff of the policy sold
      * @param _userAddress: user's address
      * @param _policyId: the unique policy ID
      */
     function policyCheck(
-        uint256 _premium,
         uint256 _payoff,
         address _userAddress,
         bytes32 _policyId
     ) internal {
         // Whether there are enough capacity in the pool
-        bool _isAccepted = insurancePool.updateWhenBuy(
-            _premium,
-            _payoff,
-            _userAddress
-        );
+        bool _isAccepted = insurancePool.checkCapacity(_payoff);
+
         if (_isAccepted) {
             policyList[_policyId].status = PolicyStatus.SOLD;
             emit PolicySold(_policyId, _userAddress);
@@ -404,6 +411,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         } else {
             policyList[_policyId].status = PolicyStatus.DECLINED;
             emit PolicyDeclined(_policyId, _userAddress);
+            revert("not sufficient capacity in the insurance pool");
         }
     }
 
@@ -555,8 +563,29 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         return payoff;
     }
 
+    function policyOwnerTransfer(
+        uint256 _tokenId,
+        address _oldOwner,
+        address _newOwner
+    ) external {
+        require(
+            msg.sender == address(policyToken),
+            "only called from the policy token contract"
+        );
+
+        bytes32 policyId = policyOrderList[_tokenId];
+        require(
+            _oldOwner == policyList[policyId].buyerAddress,
+            "the previous owner is wrong"
+        );
+
+        policyList[policyId].buyerAddress = _newOwner;
+        emit PolicyOwnerTransfer(_tokenId, _newOwner);
+    }
+
     function encodePack1(
         uint256 _order,
+        string memory _flightNumber,
         bytes32 _policyId,
         uint256 _productId,
         address _userAddress
@@ -565,7 +594,9 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
             abi.encodePacked(
                 "\nPolicy",
                 _order.toString(),
-                ": \n{PolicyId: ",
+                ": \n{FlightNumber: ",
+                _flightNumber,
+                ": \nPolicyId: ",
                 bytes32ToString(_policyId),
                 ", \nProductId: ",
                 _productId.toString(),

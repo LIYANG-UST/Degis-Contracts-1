@@ -14,7 +14,9 @@ library NFTInfo {
     }
     struct PolicyTokenURIParam {
         uint256 productId;
+        string flightNumber;
         bytes32 policyId;
+        uint256 totalOrder;
         address owner;
         uint256 premium;
         uint256 payoff;

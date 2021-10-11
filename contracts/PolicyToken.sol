@@ -12,6 +12,7 @@ contract PolicyToken is ERC721, Ownable {
 
     struct PolicyTokenURIParam {
         uint256 productId;
+        string flightNumber;
         bytes32 policyId;
         uint256 totalOrder;
         address owner;
@@ -27,9 +28,7 @@ contract PolicyToken is ERC721, Ownable {
 
     uint256 public _nextId;
 
-    constructor(IPolicyFlow _policyFlow)
-        ERC721("DegisPolicyToken2", "DEGISPT")
-    {
+    constructor(IPolicyFlow _policyFlow) ERC721("DegisPolicyToken", "DEGISPT") {
         _nextId = 1;
         policyFlow = _policyFlow;
     }
@@ -45,6 +44,15 @@ contract PolicyToken is ERC721, Ownable {
     function mintPolicyToken(address _to) public onlyOwner {
         uint256 tokenId = _nextId++;
         _mint(_to, tokenId);
+    }
+
+    function transferOwner(
+        address _from,
+        address _to,
+        uint256 _tokenId
+    ) public {
+        transferFrom(_from, _to, _tokenId);
+        policyFlow.policyOwnerTransfer(_tokenId, _from, _to);
     }
 
     function tokenURI(uint256 tokenId)
@@ -64,6 +72,7 @@ contract PolicyToken is ERC721, Ownable {
         returns (string memory)
     {
         (
+            string memory _flightNumber,
             bytes32 _policyId,
             uint256 _productId,
             address _owner,
@@ -79,6 +88,7 @@ contract PolicyToken is ERC721, Ownable {
             constructTokenURI(
                 PolicyTokenURIParam(
                     _productId,
+                    _flightNumber,
                     _policyId,
                     tokenId,
                     _owner,
@@ -93,7 +103,7 @@ contract PolicyToken is ERC721, Ownable {
     }
 
     function constructTokenURI(PolicyTokenURIParam memory _params)
-        public
+        internal
         pure
         returns (string memory)
     {
@@ -104,6 +114,8 @@ contract PolicyToken is ERC721, Ownable {
                     "Product id: ",
                     _params.productId.toString(),
                     ",",
+                    "Flight Number: ",
+                    _params.flightNumber,
                     "Policy id: ",
                     byToString(_params.policyId),
                     ",",

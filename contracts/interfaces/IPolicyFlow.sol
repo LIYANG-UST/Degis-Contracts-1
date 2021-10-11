@@ -62,6 +62,7 @@ interface IPolicyFlow {
         external
         view
         returns (
+            string memory,
             bytes32,
             uint256,
             address,
@@ -72,4 +73,10 @@ interface IPolicyFlow {
             uint256,
             uint256
         );
+
+    function policyOwnerTransfer(
+        uint256,
+        address,
+        address
+    ) external;
 }

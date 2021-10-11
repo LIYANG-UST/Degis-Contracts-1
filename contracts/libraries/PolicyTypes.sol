@@ -14,6 +14,7 @@ contract PolicyTypes {
         uint256 productId; // 0: flight delay 1,2,3: future products
         address buyerAddress; // buyer's address
         uint256 totalOrder; // total order: 0 - N (unique for each policy)(used to link)
+        string flightNumber;
         bytes32 policyId; // unique ID (bytes32) for this policy
         uint256 premium;
         uint256 payoff;
@@ -33,4 +34,5 @@ contract PolicyTypes {
     event PolicyClaimed(bytes32 _policyID, address indexed _userAddress);
     event PolicyExpired(bytes32 _policyID, address indexed _userAddress);
     event FulfilledOracleRequest(bytes32 _policyId, bytes32 _requestId);
+    event PolicyOwnerTransfer(uint256 indexed _tokenId, address _newOwner);
 }

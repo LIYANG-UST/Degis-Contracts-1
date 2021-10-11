@@ -22,6 +22,8 @@ interface IInsurancePool {
 
     function pendingDegis(address) external view returns (uint256);
 
+    function checkCapacity(uint256) external view returns (bool);
+
     function updateWhenBuy(
         uint256,
         uint256,

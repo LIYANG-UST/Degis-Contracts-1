@@ -56,16 +56,19 @@ contract InsurancePool {
     uint256 public PRB_lockedRatio; //  1e18 = 1  1e17 = 0.1  1e19 = 10
     uint256 public collateralFactor; //  1e18 = 1  1e17 = 0.1  1e19 = 10
 
-    // available capacity is the current available asset balance
+    // Available capacity for taking new
     uint256 public availableCapacity;
 
-    // premiums have been paid but the policies haven't expired
+    // Premiums have been paid but the policies haven't expired
     uint256 public activePremiums;
 
-    // rewardCollected is total income from premium
+    // Total income from premium
     uint256 public rewardCollected;
 
-    // the information about this pool
+    // [0]: LP, [1]: Lottery, [2]: Emergency
+    uint256[3] public rewardDistribution;
+
+    // Basic information about the pool
     struct PoolInfo {
         string poolName; // insurance pool
         uint256 poolId; // 0
@@ -145,6 +148,11 @@ contract InsurancePool {
         LPValue = 1e18;
         emergencyPool = _emergencyPool;
         degisLottery = _degisLottery;
+
+        // initial distribution
+        rewardDistribution[0] = 80;
+        rewardDistribution[1] = 10;
+        rewardDistribution[2] = 10;
     }
 
     // ************************************ Modifiers ************************************ //
@@ -364,6 +372,19 @@ contract InsurancePool {
         emit SetPolicyFlow(_policyFlowAddress);
     }
 
+    function setRewardDistribution(uint256[3] memory _newDistribution)
+        public
+        onlyOwner
+    {
+        uint256 sum = _newDistribution[0] +
+            _newDistribution[1] +
+            _newDistribution[2];
+        require(sum == 100, "reward distribution must sum to 100");
+        for (uint256 i = 0; i < 3; i++) {
+            rewardDistribution[i] = _newDistribution[i];
+        }
+    }
+
     /**
      * @notice transfer the ownership to a new owner
      */
@@ -446,12 +467,12 @@ contract InsurancePool {
      * @notice check the conditions when receive new buying request
      * @param _payoff: the payoff of the policy to be bought
      */
-    modifier checkWhenBuy(uint256 _payoff) {
-        require(
-            availableCapacity >= _payoff,
-            "not sufficient risk capacity for this policy"
-        );
-        _;
+    function checkCapacity(uint256 _payoff) public view returns (bool) {
+        if (availableCapacity >= _payoff) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**
@@ -464,7 +485,7 @@ contract InsurancePool {
         uint256 _premium,
         uint256 _payoff,
         address _userAddress
-    ) external checkWhenBuy(_payoff) returns (bool) {
+    ) external returns (bool) {
         lockedBalance += _payoff;
         activePremiums += _premium;
         availableCapacity -= _payoff;
@@ -643,13 +664,18 @@ contract InsurancePool {
         lockedBalance -= _payoff;
         availableCapacity += _payoff;
 
-        uint256 premiumToLP = (_premium * doDiv(8, 10)) / 1e18; // * 9e17
-        uint256 premiumToLottery = (_premium * doDiv(1, 10)) / 1e18;
+        uint256 premiumToLP = (_premium * doDiv(rewardDistribution[0], 100)) /
+            1e18; // * 9e17
+        uint256 premiumToLottery = (_premium *
+            doDiv(rewardDistribution[1], 100)) / 1e18;
+        uint256 premiumToEmergency = (_premium *
+            doDiv(rewardDistribution[2], 100)) / 1e18;
+
         rewardCollected += premiumToLP;
 
         // transfer some reward to emergency pool and lottery pool
-        USDC_TOKEN.safeTransfer(address(emergencyPool), _premium - premiumToLP);
-        USDC_TOKEN.safeTransfer(address(degisLottery), _premium - premiumToLP);
+        USDC_TOKEN.safeTransfer(address(emergencyPool), premiumToEmergency);
+        USDC_TOKEN.safeTransfer(address(degisLottery), premiumToLottery);
 
         uint256 remainingPayoff = _payoff;
         uint256 pendingAmount;
