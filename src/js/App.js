@@ -1,7 +1,7 @@
 const usdcadd_rinkeby = "0x6e95Fc19611cebD936B22Fd1A15D53d98bb31dAF";
 // const pool_address = '0xDcB6B0D63b4A6011dF2239A070fdcf65c67f366A';
 const policy_token_address = "0xF29Ca363D07d77c1BD37986791472D7429b3a693";
-const degis_token = "0xD51e2fb717A0DDC55aec9990b6F3F8B76D4922D9";
+const degis_token = "0xeFfedF1D042122493Ba9C96E0a1208295554Cb41";
 // const lp_token = "0xC37Be5d653685DA882BcbD47EF10D9760DC0D7ee";
 
 function sleep(ms) {

@@ -14,6 +14,7 @@ contract DegisToken is ERC20 {
     // Typically the minter will be the "InsurancePool" contract
     // Public addresses, can be checked on Etherscan
     address public minter;
+    address public burner;
     address public owner;
 
     // Indicate that the minter Changed !!!
@@ -53,5 +54,15 @@ contract DegisToken is ERC20 {
         require(msg.sender == minter, "Error! Msg.sender must be the minter");
 
         _mint(_account, _amount); // ERC20 method with an event
+    }
+
+    /**
+     * @notice Burn tokens !!!
+     * @param _account: address
+     * @param _amount: amount to be burned
+     */
+    function burn(address _account, uint256 _amount) public {
+        require(msg.sender == burner, "Error! Msg.sender must be the burner");
+        _burn(_account, _amount);
     }
 }

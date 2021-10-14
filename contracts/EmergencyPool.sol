@@ -37,6 +37,7 @@ contract EmergencyPool is Ownable {
     function getPoolName() public view returns (string memory) {
         return poolInfo.poolName;
     }
+
     /**
      * @notice view function, show the pool's id
      */
@@ -44,7 +45,6 @@ contract EmergencyPool is Ownable {
         return poolInfo.poolId;
     }
 
-    
     /**
      * @notice stake into the pool
      * @param _userAddress: user's address
@@ -91,9 +91,6 @@ contract EmergencyPool is Ownable {
      * @param _amount: the amount he withdraws
      */
     function _withdraw(address _userAddress, uint256 _amount) internal {
-        // 加入给用户转账的代码
-        // 使用其他ERC20 代币 usdc/dai
         USDC_TOKEN.safeTransfer(_userAddress, _amount);
     }
-
 }
