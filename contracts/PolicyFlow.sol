@@ -304,7 +304,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
 
         // Check the policy with the insurance pool status
         // May be accepted or rejected
-        policyCheck(_payoff, _userAddress, policyId);
+        policyCheck(_premium, _payoff, _userAddress, policyId);
 
         uint256 TEMP_purchaseDate = block.timestamp;
 
@@ -396,6 +396,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
      * @param _policyId: the unique policy ID
      */
     function policyCheck(
+        uint256 _premium,
         uint256 _payoff,
         address _userAddress,
         bytes32 _policyId
@@ -404,6 +405,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         bool _isAccepted = insurancePool.checkCapacity(_payoff);
 
         if (_isAccepted) {
+            insurancePool.updateWhenBuy(_premium, _payoff, _userAddress);
             policyList[_policyId].status = PolicyStatus.SOLD;
             emit PolicySold(_policyId, _userAddress);
 
