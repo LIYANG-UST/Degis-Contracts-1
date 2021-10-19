@@ -26,7 +26,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     IPolicyToken policyToken;
 
     // Minimum time before departure for applying
-    uint256 public constant MIN_TIME_BEFORE_DEPARTURE = 24 hours;
+    uint256 public MIN_TIME_BEFORE_DEPARTURE = 24 hours;
     uint256 public DELAY_THRESHOLD = 240;
     uint256 public Total_Policies;
 
@@ -250,6 +250,10 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
      */
     function changeFee(uint256 _fee) public onlyOwner {
         fee = _fee;
+    }
+
+    function changeMinTimeBeforeDeparture(uint256 _newTime) public onlyOwner {
+        MIN_TIME_BEFORE_DEPARTURE = _newTime;
     }
 
     /**
