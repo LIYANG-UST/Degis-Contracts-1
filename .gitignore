@@ -9,3 +9,4 @@ build/
 docs/
 
 .DS_Store
+contracts/Loot.sol

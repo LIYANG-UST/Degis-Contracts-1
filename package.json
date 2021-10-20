@@ -31,6 +31,7 @@
   "devDependencies": {
     "@chainlink/test-helpers": "0.0.7-alpha",
     "lite-server": "^2.6.1",
+    "solc-0.8": "npm:solc@^0.8.9",
     "truffle-plugin-verify": "^0.5.11"
   }
 }

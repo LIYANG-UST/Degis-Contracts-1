@@ -75,21 +75,23 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         _;
     }
 
-    // ************************************ View Functions ************************************ //
+    /// ***************************///
+    ///       View Functions       ///
+    /// ***************************///
 
     /**
      * @notice Returns the address of the LINK token
      * @dev This is the public implementation for chainlinkTokenAddress, which is
-     * an internal method of the ChainlinkClient contract
+     *      an internal method of the ChainlinkClient contract
      */
     function getChainlinkToken() public view returns (address) {
         return chainlinkTokenAddress();
     }
 
     /**
-     * @notice show a user's policies (all)
-     * @param _userAddress: user's address (buyer)
-     * @return user's policy details
+     * @notice Show a user's policies (all)
+     * @param _userAddress: User's address (buyer)
+     * @return User's policy details in string form
      */
     function viewPolicy(address _userAddress)
         public
@@ -100,6 +102,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
 
         uint256 policyCount = userPolicyCount[_userAddress];
         string memory result = " ";
+
         for (uint256 i = 0; i < policyCount; i++) {
             uint256 policyOrder = userPolicy[_userAddress][i];
 
@@ -177,8 +180,8 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     }
 
     /**
-     * @notice get the policyInfo from its count/order
-     * @param _count: total count
+     * @notice Get the policyInfo from its count/order
+     * @param _count: Total count of the policy
      */
     function getPolicyInfoByCount(uint256 _count)
         public
@@ -212,8 +215,8 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     }
 
     /**
-     * @notice get a user's policy amount
-     * @param _userAddress: user's address
+     * @notice Get a user's policy amount
+     * @param _userAddress: User's address
      */
     function getUserPolicyCount(address _userAddress)
         public
@@ -224,7 +227,8 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     }
 
     /**
-     * @notice get the policy buyer by policyId
+     * @notice Get the policy buyer by policyId
+     * @param _policyId: Unique policy Id (bytes32)
      */
     function findPolicyBuyerById(bytes32 _policyId)
         public
@@ -237,21 +241,25 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     // ************************************ Helper Functions ************************************ //
 
     /**
-     * @notice change the job id
-     * @param _jobId: new job Id
+     * @notice Change the job Id
+     * @param _jobId: New job Id
      */
     function changeJobId(bytes32 _jobId) public onlyOwner {
         jobId = _jobId;
     }
 
     /**
-     * @notice change the oracle fee
+     * @notice Change the oracle fee
      * @param _fee: new fee
      */
     function changeFee(uint256 _fee) public onlyOwner {
         fee = _fee;
     }
 
+    /**
+     * @notice Change the min time before departure
+     * @param _newTime: New time set
+     */
     function changeMinTimeBeforeDeparture(uint256 _newTime) public onlyOwner {
         MIN_TIME_BEFORE_DEPARTURE = _newTime;
     }
@@ -290,10 +298,9 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         uint256 _departureDate,
         uint256 _landingDate
     ) public returns (bytes32 _policyId) {
-        // Check the buying time not too close to the departure time
         require(
             _departureDate >= block.timestamp + MIN_TIME_BEFORE_DEPARTURE,
-            "ERROR::TIME_TO_DEPARTURE_TOO_SMALL"
+            "it's too close to the departure time, you cannot buy this policy"
         );
 
         // Generate the unique policyId
