@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.5;
 
 import "./libraries/PolicyTypes.sol";
 import "./libraries/ToStrings.sol";
@@ -8,6 +8,20 @@ import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "./interfaces/IPolicyToken.sol";
 
+/**
+ * @title  PolicyFlow
+ * @notice This is the policy flow contract which is responsible for the whole lifecycle of a policy.
+ *         Every policy's information are stored in this contract.
+ *         A policy will have a "_policyOrder" and a "_policyId":
+ *
+ *             policyOrder: The total order in this product. Should be equal to its ERC721 tokenId
+ *             policyId: A bytes32 representation of a policy and it's unique
+ *
+ *         The main functions of a policy are: newApplication & newClaimRequest.
+ *         We use Chainlink in this contract to get the final status of a flight.
+ *
+ *
+ */
 contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     using Chainlink for Chainlink.Request;
     using Strings for uint256;
@@ -70,14 +84,15 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         );
         _;
     }
+
     modifier onlyOwner() {
         require(msg.sender == owner, "only the owner can call this function");
         _;
     }
 
-    /// ***************************///
-    ///       View Functions       ///
-    /// ***************************///
+    /// *************************** ///
+    ///        View Functions       ///
+    /// *************************** ///
 
     /**
      * @notice Returns the address of the LINK token
@@ -131,49 +146,14 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
             );
 
             result = string(abi.encodePacked(result, result1, result2));
-
-            // result = string(
-            //     abi.encodePacked(
-            //         result,
-            //         string(
-            //             abi.encodePacked(
-            //                 "\nPolicy",
-            //                 i.toString(),
-            //                 ": \n{PolicyId: ",
-            //                 bytes32ToString(policyid),
-            //                 ", \nProductId: ",
-            //                 policyList[policyid].productId.toString(),
-            //                 ", \nBuyerAddress: ",
-            //                 addressToString(policyList[policyid].buyerAddress),
-            //                 ", \nPremium: ",
-            //                 (policyList[policyid].premium / 10**18).toString(),
-            //                 ", \nPayoff: ",
-            //                 (policyList[policyid].payoff / 10**18).toString(),
-            //                 ", \nPurchaseDate: ",
-            //                 (policyList[policyid].purchaseDate).toString(),
-            //                 ", \nDepartureDate: ",
-            //                 (policyList[policyid].departureDate).toString(),
-            //                 ", \nLandingDate: ",
-            //                 (policyList[policyid].landingDate).toString(),
-            //                 ", \nStatus: ",
-            //                 uint256(policyList[policyid].status).toString(),
-            //                 ", \nIsUsed: ",
-            //                 isUsed,
-            //                 ", \nDelay Results: ",
-            //                 policyList[policyid].delayResult.toString(),
-            //                 "}"
-            //             )
-            //         )
-            //     )
-            // );
         }
         return result;
     }
 
     /**
-     * @notice get the policyId (bytes32) from its count/order
-     * @param _count: total count
-     * @return policyId (bytes32)
+     * @notice Get the policyId (bytes32) from its count/order
+     * @param _count: Total count
+     * @return PolicyId (bytes32)
      */
     function getPolicyIdByCount(uint256 _count) public view returns (bytes32) {
         return policyOrderList[_count];
@@ -217,6 +197,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     /**
      * @notice Get a user's policy amount
      * @param _userAddress: User's address
+     * @return User's policy amount
      */
     function getUserPolicyCount(address _userAddress)
         public
@@ -229,6 +210,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     /**
      * @notice Get the policy buyer by policyId
      * @param _policyId: Unique policy Id (bytes32)
+     * @return The buyer of this policy
      */
     function findPolicyBuyerById(bytes32 _policyId)
         public
@@ -238,7 +220,9 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         return policyList[_policyId].buyerAddress;
     }
 
-    // ************************************ Helper Functions ************************************ //
+    /// ***************************///
+    ///      Helper Functions      ///
+    /// ***************************///
 
     /**
      * @notice Change the job Id
@@ -265,15 +249,16 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     }
 
     /**
-     * @notice change the oracle address
-     * @param _oracleAddress: new oracle address
+     * @notice Change the oracle address
+     * @param _oracleAddress: New oracle address
      */
     function changeOrcaleAddress(address _oracleAddress) public onlyOwner {
         oracleAddress = _oracleAddress;
     }
 
     /**
-     * @notice set the new delay threshold
+     * @notice Set the new delay threshold
+     * @param _threshold: New threshold
      */
     function setDelayThreshold(uint256 _threshold) public onlyOwner {
         DELAY_THRESHOLD = _threshold;
@@ -350,7 +335,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         return policyId;
     }
 
-    /** @notice calculate the flight status
+    /** @notice Make a claim request
      *  @param _policyOrder The total order of the policy
      *  @param _flightNumber The flight number
      *  @param _date The flight date
@@ -372,7 +357,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         require(
             (!policyList[_policyId].isUsed) ||
                 (_forceUpdate && (msg.sender == owner)),
-            "The policy has been final checked, or you need to force update"
+            "the policy status has already been settled, or you need to make a force update"
         );
         require(
             keccak256(abi.encodePacked(_flightNumber)) ==
@@ -532,7 +517,7 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         address _userAddress,
         bytes32 _policyId
     ) internal {
-        insurancePool.updateWhenExpire(_premium, _payoff);
+        insurancePool.updateWhenExpire(_premium, _payoff, _userAddress);
         policyList[_policyId].status = PolicyStatus.EXPIRED;
         emit PolicyExpired(_policyId, _userAddress);
     }
@@ -576,6 +561,12 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         return payoff;
     }
 
+    /**
+     * @notice Update information when a policy token's ownership has been transferred
+     * @param _tokenId: Token Id of the policy token
+     * @param _oldOwner: The initial owner
+     * @param _newOwner: The new owner
+     */
     function policyOwnerTransfer(
         uint256 _tokenId,
         address _oldOwner,

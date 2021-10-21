@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.5;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -9,16 +9,28 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * Just add some boring functions.
  */
 interface IDegisToken is IERC20 {
-    /**
-     * @dev Pass the minter role.
-     */
+    // ---------------------------------------------------------------------------------------- //
+    // *************************************** Functions ************************************** //
+    // ---------------------------------------------------------------------------------------- //
+
     function passMinterRole(address) external returns (bool);
 
-    /**
-     * @dev Mint some tokens.
-     */
+    function passOwnership(address) external returns (bool);
+
+    function passBurnerRole(address) external returns (bool);
+
+    function releaseOwnership() external returns (bool);
+
     function mint(address, uint256) external;
 
-    // Indicate that the minter Changed !!!
-    event MinterChanged(address indexed from, address indexed to);
+    function burn(address, uint256) external;
+
+    // ---------------------------------------------------------------------------------------- //
+    // **************************************** Events **************************************** //
+    // ---------------------------------------------------------------------------------------- //
+
+    event MinterChanged(address indexed _oldMinter, address indexed _newMinter);
+    event OwnerChanged(address indexed _oldOwner, address indexed _newOwner);
+    event BurnerChanged(address indexed _oldBurner, address indexed _newBurner);
+    event ReleaseOwnership(address indexed _oldOwner);
 }
