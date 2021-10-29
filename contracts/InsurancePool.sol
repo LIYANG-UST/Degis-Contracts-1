@@ -10,6 +10,10 @@ import "./interfaces/IEmergencyPool.sol";
 import "./interfaces/IDegisLottery.sol";
 
 contract InsurancePool {
+    // ---------------------------------------------------------------------------------------- //
+    // *********************************** State Variables ************************************ //
+    // ---------------------------------------------------------------------------------------- //
+
     using PRBMathUD60x18 for uint256;
     using SafeERC20 for IERC20;
 

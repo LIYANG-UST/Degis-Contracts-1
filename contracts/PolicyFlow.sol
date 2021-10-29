@@ -6,6 +6,7 @@ import "./libraries/ToStrings.sol";
 import "./interfaces/IInsurancePool.sol";
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "./interfaces/IPolicyToken.sol";
 
 /**
@@ -25,6 +26,9 @@ import "./interfaces/IPolicyToken.sol";
 contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
     using Chainlink for Chainlink.Request;
     using Strings for uint256;
+    using ECDSA for bytes32;
+
+    bytes32 internal _SUBMIT_CLAIM_TYPEHASH;
 
     uint256 public oracleResponse; // A test variable to store the oracle address
     uint256 fee;
@@ -73,6 +77,10 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
 
         // Initialize the count (actually do not need to initialize)
         Total_Policies = 0;
+
+        _SUBMIT_CLAIM_TYPEHASH = keccak256(
+            "DegisSubmitClaim(uint256 policyOrder,uint256 amountOut,uint256 deadline)"
+        );
     }
 
     // ************************************ Modifiers ************************************ //
@@ -281,11 +289,23 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         uint256 _premium,
         uint256 _payoff,
         uint256 _departureDate,
-        uint256 _landingDate
+        uint256 _landingDate,
+        bytes calldata signature
     ) public returns (bytes32 _policyId) {
         require(
             _departureDate >= block.timestamp + MIN_TIME_BEFORE_DEPARTURE,
             "it's too close to the departure time, you cannot buy this policy"
+        );
+
+        bytes32 hashData = keccak256(
+            abi.encode(_SUBMIT_CLAIM_TYPEHASH, _flightnNmber, msg.sender)
+        );
+        address signer = keccak256(hashData).toEthSignedMessageHash().recover(
+            signature
+        );
+        require(
+            _isValidSigner[signer],
+            "Can only submitted by authorized signer"
         );
 
         // Generate the unique policyId
@@ -347,7 +367,8 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
         string memory _flightNumber,
         string memory _date,
         string memory _path,
-        bool _forceUpdate
+        bool _forceUpdate,
+        bytes calldata signature
     ) public onlyOwner {
         bytes32 _policyId = policyOrderList[_policyOrder];
         require(
@@ -363,6 +384,16 @@ contract PolicyFlow is ChainlinkClient, PolicyTypes, ToStrings {
             keccak256(abi.encodePacked(_flightNumber)) ==
                 keccak256(abi.encodePacked(policyList[_policyId].flightNumber)),
             "wrong flight number provided"
+        );
+        bytes32 hashData = keccak256(
+            abi.encode(_SUBMIT_CLAIM_TYPEHASH, _policyOrder, msg.sender)
+        );
+        address signer = keccak256(hashData).toEthSignedMessageHash().recover(
+            signature
+        );
+        require(
+            _isValidSigner[signer],
+            "Can only submitted by authorized signer"
         );
 
         string memory _url = string(
