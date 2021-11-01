@@ -21,7 +21,7 @@ contract InsurancePool {
 
     address public policyFlow;
 
-    bool purchaseIncentive;
+    bool public purchaseIncentive;
 
     struct UserInfo {
         uint256 rewardDebt; // degis reward debt
@@ -38,7 +38,7 @@ contract InsurancePool {
     // ---------------------------------------------------------------------------------------- //
 
     IDegisToken public DEGIS;
-    IERC20 public USDC_TOKEN;
+    IERC20 public USDT;
     IEmergencyPool public emergencyPool;
     ILPToken public DLPToken;
     IDegisLottery public degisLottery;
@@ -159,7 +159,7 @@ contract InsurancePool {
         );
 
         DEGIS = IDegisToken(_degis);
-        USDC_TOKEN = IERC20(_usdcAddress);
+        USDT = IERC20(_usdcAddress);
         DLPToken = ILPToken(_lptoken);
         emergencyPool = IEmergencyPool(_emergencyPool);
         degisLottery = IDegisLottery(_degisLottery);
@@ -201,7 +201,7 @@ contract InsurancePool {
     /**
      * @notice the address can not be zero
      */
-    modifier onlyValidAddress(address _address) {
+    modifier notZeroAddress(address _address) {
         require(_address != address(0), "the address can not be zero address");
         _;
     }
@@ -231,7 +231,7 @@ contract InsurancePool {
     function pendingDegis(address _userAddress)
         external
         view
-        onlyValidAddress(_userAddress)
+        notZeroAddress(_userAddress)
         returns (uint256)
     {
         if (block.number < poolInfo.lastRewardBlock) return 0;
@@ -372,29 +372,22 @@ contract InsurancePool {
     // ************************************ Owner Functions *********************************** //
     // ---------------------------------------------------------------------------------------- //
 
-    function setPurchaseIncentive(bool _isOn) public onlyOwner {
-        if (_isOn == true) {
-            require(
-                purchaseIncentive == false,
-                "the purchaseIncentive is already on"
-            );
-            purchaseIncentive = _isOn;
-            emit PurcahseIncentiveOn(block.timestamp);
-        } else if (_isOn == false) {
-            purchaseIncentive = _isOn;
-            require(
-                purchaseIncentive == true,
-                "the purchaseIncentive is already off"
-            );
-            emit PurcahseIncentiveOff(block.timestamp);
-        }
+    function openPurchaseIncentive() public onlyOwner {
+        require(
+            purchaseIncentive == false,
+            "the purchase incentive has already turned on"
+        );
+        purchaseIncentive = true;
+        emit PurchaseIncentiveOn(block.timestamp);
     }
 
-    function openPurchaseIncentive(bool _isOn) public onlyOwner {
-        if (_isOn = true) {
-            purchaseIncentive = _isOn;
-            emit PurcahseIncentiveOn(block.timestamp);
-        }
+    function closePurchaseIncentive() public onlyOwner {
+        require(
+            purchaseIncentive == true,
+            "the purchase incentive has already turned off"
+        );
+        purchaseIncentive = false;
+        emit PurchaseIncentiveOff(block.timestamp);
     }
 
     /**
@@ -435,7 +428,7 @@ contract InsurancePool {
     function transferOwnerShip(address _newOwner)
         public
         onlyOwner
-        onlyValidAddress(_newOwner)
+        notZeroAddress(_newOwner)
     {
         owner = _newOwner;
         emit OwnerChanged(owner, _newOwner);
@@ -508,7 +501,7 @@ contract InsurancePool {
      */
     function stake(address _userAddress, uint256 _amount)
         external
-        onlyValidAddress(_userAddress)
+        notZeroAddress(_userAddress)
     {
         require(_amount > 0, "can not deposit 0");
 
@@ -545,7 +538,7 @@ contract InsurancePool {
      */
     function unstake(address _userAddress, uint256 _amount)
         external
-        onlyValidAddress(_userAddress)
+        notZeroAddress(_userAddress)
     {
         uint256 real_balance = getRealBalance(_userAddress);
         require(
@@ -576,7 +569,7 @@ contract InsurancePool {
 
             uint256 pending_premium = ((real_balance *
                 poolInfo.accPremiumPerShare) / (1e18)) - (user.premiumDebt);
-            USDC_TOKEN.safeTransfer(_userAddress, pending_premium);
+            USDT.safeTransfer(_userAddress, pending_premium);
         }
 
         _withdraw(_userAddress, unstakeAmount);
@@ -609,7 +602,7 @@ contract InsurancePool {
         lockedRatio = doDiv(lockedBalance, totalStakingBalance);
 
         // Remember approval
-        USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _premium);
+        USDT.safeTransferFrom(_userAddress, address(this), _premium);
 
         if (purchaseIncentive == true) {
             updatePoolReward();
@@ -655,8 +648,8 @@ contract InsurancePool {
         rewardCollected += premiumToLP;
 
         // Transfer some reward to emergency pool and lottery pool
-        USDC_TOKEN.safeTransfer(address(emergencyPool), premiumToEmergency);
-        USDC_TOKEN.safeTransfer(address(degisLottery), premiumToLottery);
+        USDT.safeTransfer(address(emergencyPool), premiumToEmergency);
+        USDT.safeTransfer(address(degisLottery), premiumToLottery);
 
         uint256 remainingPayoff = _payoff;
         uint256 pendingAmount;
@@ -685,16 +678,13 @@ contract InsurancePool {
                             }
                             unstakeRequests[pendingUser].pop();
 
-                            USDC_TOKEN.safeTransfer(pendingUser, pendingAmount);
+                            USDT.safeTransfer(pendingUser, pendingAmount);
                         } else {
                             unstakeRequests[pendingUser][j]
                                 .pendingAmount -= remainingPayoff;
                             unstakeRequests[pendingUser][j]
                                 .fulfilledAmount += remainingPayoff;
-                            USDC_TOKEN.safeTransfer(
-                                pendingUser,
-                                remainingPayoff
-                            );
+                            USDT.safeTransfer(pendingUser, remainingPayoff);
 
                             remainingPayoff = 0;
                             break;
@@ -714,13 +704,17 @@ contract InsurancePool {
     function payClaim(
         uint256 _premium,
         uint256 _payoff,
+        uint256 _realPayoff,
         address _userAddress
-    ) public onlyValidAddress(_userAddress) {
+    ) public notZeroAddress(_userAddress) {
         updatePoolReward();
 
+        // Unlock the max payoff volume
         lockedBalance -= _payoff;
-        totalStakingBalance -= _payoff;
-        realStakingBalance -= _payoff;
+        // Count the real payoff volume
+        totalStakingBalance -= _realPayoff;
+        realStakingBalance -= _realPayoff;
+        // Premiums to distribute
         activePremiums -= _premium;
 
         uint256 premiumToLP = (_premium * doDiv(rewardDistribution[0], 100)) /
@@ -733,14 +727,14 @@ contract InsurancePool {
         rewardCollected += premiumToLP;
 
         // transfer some reward to emergency pool and lottery pool
-        USDC_TOKEN.safeTransfer(address(emergencyPool), premiumToEmergency);
-        USDC_TOKEN.safeTransfer(address(degisLottery), premiumToLottery);
+        USDT.safeTransfer(address(emergencyPool), premiumToEmergency);
+        USDT.safeTransfer(address(degisLottery), premiumToLottery);
 
         uint256 currentLotteryId = degisLottery.viewCurrentLotteryId();
         degisLottery.injectFunds(currentLotteryId, premiumToLottery);
 
         updateLPValue();
-        USDC_TOKEN.safeTransfer(_userAddress, _payoff);
+        USDT.safeTransfer(_userAddress, _realPayoff);
     }
 
     /**
@@ -749,7 +743,7 @@ contract InsurancePool {
      */
     function harvestDegisReward(address _userAddress)
         public
-        onlyValidAddress(_userAddress)
+        notZeroAddress(_userAddress)
     {
         UserInfo storage user = userInfo[_userAddress];
         updatePoolReward();
@@ -771,7 +765,7 @@ contract InsurancePool {
      */
     function harvestPremium(address _userAddress)
         public
-        onlyValidAddress(_userAddress)
+        notZeroAddress(_userAddress)
     {
         UserInfo storage user = userInfo[_userAddress];
         updatePoolReward();
@@ -781,7 +775,7 @@ contract InsurancePool {
         if (real_balance > 0) {
             uint256 pending = ((real_balance * poolInfo.accPremiumPerShare) /
                 (1e18)) - (user.premiumDebt);
-            USDC_TOKEN.safeTransfer(_userAddress, pending);
+            USDT.safeTransfer(_userAddress, pending);
         }
         user.premiumDebt =
             (real_balance * (poolInfo.accPremiumPerShare)) /
@@ -796,7 +790,7 @@ contract InsurancePool {
      */
     function revertUnstakeRequest(address _userAddress)
         public
-        onlyValidAddress(_userAddress)
+        notZeroAddress(_userAddress)
     {
         UnstakeRequest[] storage userRequests = unstakeRequests[_userAddress];
         require(
@@ -820,7 +814,7 @@ contract InsurancePool {
      */
     function revertAllUnstakeRequest(address _userAddress)
         public
-        onlyValidAddress(_userAddress)
+        notZeroAddress(_userAddress)
     {
         UnstakeRequest[] storage userRequests = unstakeRequests[_userAddress];
         require(
@@ -883,7 +877,7 @@ contract InsurancePool {
 
         lockedRatio = doDiv(lockedBalance, totalStakingBalance);
 
-        USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _amount);
+        USDT.safeTransferFrom(_userAddress, address(this), _amount);
 
         // LP Token number need to be newly minted
         uint256 lp_num = doDiv(_amount, LPValue);
@@ -910,7 +904,7 @@ contract InsurancePool {
 
         lockedRatio = doDiv(lockedBalance, totalStakingBalance);
 
-        USDC_TOKEN.safeTransfer(_userAddress, _amount);
+        USDT.safeTransfer(_userAddress, _amount);
 
         uint256 lp_num = doDiv(_amount, LPValue);
         DLPToken.burn(_userAddress, lp_num);
@@ -931,9 +925,9 @@ contract InsurancePool {
     }
 
     /**
-     * @notice safe degis transfer (if the pool has enough DEGIS token)
-     * @param _to: user's address
-     * @param _amount: amount
+     * @notice Safe degis transfer (check if the pool has enough DEGIS token)
+     * @param _to: User's address
+     * @param _amount: Amount to transfer
      */
     function safeDegisTransfer(address _to, uint256 _amount) internal {
         uint256 DegisBalance = DEGIS.balanceOf(address(this));

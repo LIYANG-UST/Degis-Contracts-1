@@ -39,6 +39,7 @@ interface IInsurancePool {
     function payClaim(
         uint256,
         uint256,
+        uint256,
         address
     ) external;
 

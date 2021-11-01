@@ -13,7 +13,6 @@ contract PolicyToken is ERC721Enumerable, Ownable {
     struct PolicyTokenURIParam {
         uint256 productId;
         string flightNumber;
-        bytes32 policyId;
         uint256 totalOrder;
         address owner;
         uint256 premium;
@@ -120,7 +119,6 @@ contract PolicyToken is ERC721Enumerable, Ownable {
     {
         (
             string memory _flightNumber,
-            bytes32 _policyId,
             uint256 _productId,
             address _owner,
             uint256 _premium,
@@ -129,14 +127,13 @@ contract PolicyToken is ERC721Enumerable, Ownable {
             uint256 _departureDate,
             uint256 _landingDate,
             uint256 _status
-        ) = policyFlow.getPolicyInfoByCount(_tokenId);
+        ) = policyFlow.getPolicyInfoById(_tokenId);
 
         return
             constructTokenURI(
                 PolicyTokenURIParam(
                     _productId,
                     _flightNumber,
-                    _policyId,
                     _tokenId,
                     _owner,
                     _premium,
@@ -169,9 +166,6 @@ contract PolicyToken is ERC721Enumerable, Ownable {
                     "Flight Number: ",
                     _params.flightNumber,
                     "Policy id: ",
-                    byToString(_params.policyId),
-                    ",",
-                    "Total Order: ",
                     _params.totalOrder.toString(),
                     ",",
                     "BuyerAddress: ",
