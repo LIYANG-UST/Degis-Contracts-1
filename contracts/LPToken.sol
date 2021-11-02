@@ -9,6 +9,11 @@ contract LPToken is ERC20 {
 
     event MinterChanged(address indexed from, address to);
 
+    modifier onlyOwner() {
+        require(msg.sender == owner, "only the owner call this function");
+        _;
+    }
+
     constructor() ERC20("Degis-LPToken", "DLP") {
         owner = msg.sender;
         minter = msg.sender;
@@ -24,12 +29,7 @@ contract LPToken is ERC20 {
         _burn(account, value);
     }
 
-    function passMinterRole(address _minter) public returns (bool) {
-        require(
-            msg.sender == owner,
-            "Error! only the owner can change the minter role"
-        );
-
+    function passMinterRole(address _minter) public onlyOwner returns (bool) {
         minter = _minter;
         emit MinterChanged(msg.sender, _minter);
         return true;
