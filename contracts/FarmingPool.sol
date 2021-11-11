@@ -3,11 +3,13 @@ pragma solidity 0.8.5;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "interfaces/ILPToken.sol";
-import "interfaces/IDegisToken.sol";
+import ".interfaces/ILPToken.sol";
+import ".interfaces/IDegisToken.sol";
 
 contract FarmingPool {
     using SafeERC20 for IERC20;
+
+    uint256 public _nextPoolId; // poolId starts from 1, zero means not in the farm
 
     struct PoolInfo {
         IERC20 lpToken;
@@ -15,7 +17,9 @@ contract FarmingPool {
         uint256 lastRewardBlock;
         uint256 accDegisPerShare;
     }
-    mapping(uint256 => PoolInfo) poolInfo;
+    mapping(address => uint256) poolMapping; // lptoken => poolId
+    mapping(uint256 => bool) isFarming; // poolId => alreadyFarming
+    PoolInfo[] poolList;
 
     struct UserInfo {
         uint256 rewardDebt; // degis reward debt
@@ -37,6 +41,7 @@ contract FarmingPool {
     constructor(address _degis, uint256 _startBlock) {
         degis = IDegisToken(_degis);
         startBlock = _startBlock;
+        _nextPoolId = 1;
     }
 
     /// @notice Add a new lp to the pool. Can only be called by the owner.
@@ -54,46 +59,46 @@ contract FarmingPool {
         if (_isUpdate) {
             massUpdatePools();
         }
-        
-        uint256 lastRewardBlock =
-            block.number > startBlock ? block.number : startBlock;
 
-        poolInfo.push(
-            PoolInfo(
+        uint256 lastRewardBlock = block.number > startBlock
+            ? block.number
+            : startBlock;
+
+        poolList.push(
+            PoolInfo({
                 lpToken: IERC20(_lpToken),
                 degisPerBlock: _degisPerBlock,
                 lastRewardBlock: lastRewardBlock,
                 accDegisPerShare: 0
-            )
+            })
         );
+        poolMapping[_lpToken] = _nextPoolId;
+        isFarming[_nextPoolId] = true;
 
-        emit NewPoolAdded(address _lpToken);
-    }
+        _nextPoolId += 1;
 
-    function _alreadyInPool(address _poolAddress) internal returns (bool) {
-        uint256 length = poolInfo.length;
-
-        for (uint256 i = 0; i < length; i++) {
-            if (_poolAddress == poolInfo[i]) return true;
-            else continue;
-        }
-        return false;
+        emit NewPoolAdded(_lpToken);
     }
 
     /**
-     * @notice Update the degisPerBlock for a specific pool
+     * @notice Update the degisPerBlock for a specific pool (set to 0 to stop farming)
+     * @param _poolId: Id of the pool
+     * @param _degisPerBlock: New reward amount per block
+     * @param _withUpdate: Whether update all the pool
      */
     function set(
         uint256 _poolId,
         uint256 _degisPerBlock,
         bool _withUpdate
     ) public onlyOwner {
-
-        require (poolInfo[_poolId].lastRewardBlock != 0, "no such pool, your poolId may be wrong");
+        require(
+            poolList[_poolId].lastRewardBlock != 0,
+            "no such pool, your poolId may be wrong"
+        );
         if (_withUpdate) {
             massUpdatePools();
         }
-        
+
         poolInfo[_poolId].degisPerBlock = _degisPerBlock;
     }
 
@@ -199,5 +204,26 @@ contract FarmingPool {
         } else {
             DEGIS.transfer(_to, _amount);
         }
+    }
+
+    /**
+     * @notice Update all farming pools (except for those stopped)
+     */
+    function massUpdatePools() public {
+        uint256 length = poolInfo.length;
+        for (uint256 poolId = 0; poolId < length; poolId++) {
+            if (isFarming[poolId] == false) continue;
+            else updatePool(pid);
+        }
+    }
+
+    /**
+     * @notice Check if a lptoken has been added into the pool before
+     */
+    function _alreadyInPool(address _lpTokenAddress) internal returns (bool) {
+        uint256 poolId = poolMapping[_lpTokenAddress];
+        // Never been added
+        if (poolId == 0) return false;
+        else return true;
     }
 }

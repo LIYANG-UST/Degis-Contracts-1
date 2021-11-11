@@ -180,7 +180,7 @@ contract InsurancePool {
     // ---------------------------------------------------------------------------------------- //
 
     /**
-     * @notice only the owner can call some functions
+     * @notice Only the owner can call some functions
      */
     modifier onlyOwner() {
         require(msg.sender == owner, "only the owner can call this function");
@@ -188,18 +188,18 @@ contract InsurancePool {
     }
 
     /**
-     * @notice only the policyFlow contract can call some functions
+     * @notice Only the policyFlow contract can call some functions
      */
     modifier onlyPolicyFlow() {
         require(
             msg.sender == policyFlow,
-            "only called by the policy flow contract"
+            "only the policyFlow contract can call this function"
         );
         _;
     }
 
     /**
-     * @notice the address can not be zero
+     * @notice The address can not be zero
      */
     modifier notZeroAddress(address _address) {
         require(_address != address(0), "the address can not be zero address");
