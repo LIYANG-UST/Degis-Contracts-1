@@ -160,42 +160,52 @@ contract PolicyToken is ERC721Enumerable, Ownable {
         return
             string(
                 abi.encodePacked(
-                    "Product id: ",
+                    "ProductId: ",
                     _params.productId.toString(),
-                    ",",
-                    "Flight Number: ",
+                    ", ",
+                    "FlightNumber: ",
                     _params.flightNumber,
-                    "Policy id: ",
+                    "PolicyId: ",
                     _params.totalOrder.toString(),
-                    ",",
+                    ", ",
                     "BuyerAddress: ",
                     addressToString(_params.owner),
-                    "Premium:",
+                    "Premium: ",
                     (_params.premium / 10**18).toString(),
-                    ",",
-                    "Payoff:",
+                    ", ",
+                    "Payoff: ",
                     (_params.payoff / 10**18).toString(),
-                    ",",
-                    "PurchaseDate:",
+                    ", ",
+                    "PurchaseDate: ",
                     _params.purchaseDate.toString(),
-                    ",",
+                    ", ",
                     "DepartureDate:",
                     _params.departureDate.toString(),
-                    ",",
-                    "LandingDate:",
+                    ", ",
+                    "LandingDate: ",
                     _params.landingDate.toString(),
-                    ",",
-                    "PolicyStatus:",
+                    ", ",
+                    "PolicyStatus: ",
                     status.toString(),
                     "."
                 )
             );
     }
 
+    /**
+     * @notice Bytes to string (not human-readable form)
+     * @param _bytes: Input bytes
+     * @return String form
+     */
     function byToString(bytes32 _bytes) internal pure returns (string memory) {
         return (uint256(_bytes)).toHexString(32);
     }
 
+    /**
+     * @notice Transfer address to string (not change the content)
+     * @param _addr: Input address
+     * @return String form
+     */
     function addressToString(address _addr)
         internal
         pure

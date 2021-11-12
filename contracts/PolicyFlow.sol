@@ -62,7 +62,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     /// @notice validSigner is our server
     mapping(address => bool) _isValidSigner;
 
-    // Constructor Function
+    /// @notice Constructor Function
     constructor(
         IInsurancePool _insurancePool,
         IPolicyToken _policyToken,
@@ -156,70 +156,27 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
 
         for (uint256 i = 0; i < policyCount; i++) {
             uint256 policyId = userPolicy[_userAddress][i];
-
-            string memory isUsed = policyList[policyId].isUsed
-                ? "used"
-                : "not used";
-
-            string memory result1 = encodePack1(
-                i,
-                policyList[policyId].flightNumber,
-                policyId,
-                policyList[policyId].productId,
-                policyList[policyId].buyerAddress
-            );
-            string memory result2 = encodePack2(
-                policyList[policyId].premium,
-                policyList[policyId].payoff,
-                policyList[policyId].purchaseDate,
-                policyList[policyId].departureDate,
-                policyList[policyId].landingDate,
-                uint256(policyList[policyId].status),
-                isUsed,
-                policyList[policyId].delayResult
-            );
-
-            result = string(abi.encodePacked(result, result1, result2));
         }
         return result;
     }
 
     /**
      * @notice Get the policyInfo from its count/order
-     * @param _policyId: Total count of the policy
+     * @param _policyId: Total count of the policy = NFT tokenId
+     * @return A list of information about this policy
      */
     function getPolicyInfoById(uint256 _policyId)
         public
         view
         override
-        returns (
-            string memory _flightNumber,
-            uint256 _productId,
-            address _owner,
-            uint256 _premium,
-            uint256 _payoff,
-            uint256 _purchaseDate,
-            uint256 _departureDate,
-            uint256 _landingDate,
-            uint256 _policyStatus
-        )
+        returns (PolicyInfo memory)
     {
         PolicyInfo memory policy = policyList[_policyId];
-        return (
-            policy.flightNumber,
-            policy.productId,
-            policy.buyerAddress,
-            policy.premium,
-            policy.payoff,
-            policy.purchaseDate,
-            policy.departureDate,
-            policy.landingDate,
-            uint256(policy.status)
-        );
+        return policy;
     }
 
     /**
-     * @notice Get a user's policy amount
+     * @notice Get a user's total policy amount
      * @param _userAddress: User's address
      * @return User's policy amount
      */
@@ -250,7 +207,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
 
     /**
      * @notice Change the job Id
-     * @param _jobId: New job Id
+     * @param _jobId: New oracle job Id
      */
     function changeJobId(bytes32 _jobId) public onlyOwner {
         jobId = _jobId;
@@ -258,10 +215,18 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
 
     /**
      * @notice Change the oracle fee
-     * @param _fee: new fee
+     * @param _fee: New oracle fee
      */
     function changeFee(uint256 _fee) public onlyOwner {
         fee = _fee;
+    }
+
+    /**
+     * @notice Change the max payoff
+     * @param _newMaxPayoff: New maxpayoff amount
+     */
+    function changeMaxPayoff(uint256 _newMaxPayoff) public onlyOwner {
+        MAX_PAYOFF = _newMaxPayoff;
     }
 
     /**
