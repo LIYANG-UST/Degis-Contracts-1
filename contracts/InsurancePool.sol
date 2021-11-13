@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.5;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -13,6 +13,7 @@ contract InsurancePool {
     // ---------------------------------------------------------------------------------------- //
     // *********************************** State Variables ************************************ //
     // ---------------------------------------------------------------------------------------- //
+    string public constant name = "Degis FlightDelay InsurancePool";
 
     using PRBMathUD60x18 for uint256;
     using SafeERC20 for IERC20;
@@ -24,7 +25,6 @@ contract InsurancePool {
     bool public purchaseIncentive;
 
     struct UserInfo {
-        uint256 rewardDebt; // degis reward debt
         uint256 premiumDebt; // premium reward debt
         uint256 assetBalance; // the amount of a user's staking in the pool
         uint256 pendingBalance; // the amount in the unstake queue
@@ -77,12 +77,7 @@ contract InsurancePool {
 
     // Basic information about the pool
     struct PoolInfo {
-        string poolName; // insurance pool
-        uint256 poolId; // 0
         uint256 totalLP; // total lp amount
-        uint256 accDegisPerShare;
-        uint256 lastRewardBlock;
-        uint256 degisPerBlock;
         uint256 accPremiumPerShare;
         uint256 lastRewardCollected;
     }
@@ -138,8 +133,7 @@ contract InsurancePool {
         address _emergencyPool,
         address _lptoken,
         address _degisLottery,
-        address _usdcAddress,
-        uint256 _degisPerBlock
+        address _usdcAddress
     ) {
         owner = msg.sender;
 
@@ -148,12 +142,7 @@ contract InsurancePool {
         lockedRatio = 1e18; // 1e18 = 1
 
         poolInfo = PoolInfo(
-            "insurancepool", // pool name
-            0, // pool id
             0, // TOTAL LP
-            0, // accDegisPerShare
-            block.number, // lastRewardBlock
-            _degisPerBlock,
             0, // accPremiumPerShare
             0 // lastRewardCollected
         );
@@ -166,12 +155,12 @@ contract InsurancePool {
 
         LPValue = 1e18;
 
-        // initial distribution
+        // Initial distribution, 0: LP 1: Emergency 2: Lottery(Staking)
         rewardDistribution[0] = 80;
         rewardDistribution[1] = 10;
         rewardDistribution[2] = 10;
 
-        // If purchaseIncentive is on
+        // Degis compensation when no payoff
         purchaseIncentive = false;
     }
 
@@ -211,48 +200,10 @@ contract InsurancePool {
     // ---------------------------------------------------------------------------------------- //
 
     /**
-     * @notice Get accumulated degis per share
-     * @dev    This amount is not the latest one !!
-     */
-    function getAccDegisPerShare() public view returns (uint256) {
-        return poolInfo.accDegisPerShare;
-    }
-
-    /**
      * @notice view the collateral factor
      */
     function getCollateralFactor() public view returns (uint256) {
         return collateralFactor;
-    }
-
-    /**
-     * @notice view the pending degis amount in frontend
-     */
-    function pendingDegis(address _userAddress)
-        external
-        view
-        notZeroAddress(_userAddress)
-        returns (uint256)
-    {
-        if (block.number < poolInfo.lastRewardBlock) return 0;
-
-        UserInfo storage user = userInfo[_userAddress];
-
-        uint256 real_balance = getRealBalance(_userAddress);
-
-        uint256 accDegisPerShare = poolInfo.accDegisPerShare;
-
-        if (real_balance > 0) {
-            uint256 blocks = block.number - poolInfo.lastRewardBlock;
-            uint256 degisReward = poolInfo.degisPerBlock * blocks;
-
-            accDegisPerShare += (degisReward * 1e18) / totalStakingBalance;
-            uint256 pending = ((real_balance * accDegisPerShare) / 1e18) -
-                user.rewardDebt;
-            return pending;
-        } else {
-            return 0;
-        }
     }
 
     /**
@@ -261,7 +212,7 @@ contract InsurancePool {
     function pendingPremium(address _userAddress)
         external
         view
-        returns (uint256)
+        returns (uint256 _pendingPremium)
     {
         UserInfo storage user = userInfo[_userAddress];
 
@@ -269,26 +220,10 @@ contract InsurancePool {
 
         uint256 accPremiumPerShare = poolInfo.accPremiumPerShare;
 
-        if (block.number > poolInfo.lastRewardBlock) {
-            uint256 premiumReward = rewardCollected -
-                poolInfo.lastRewardCollected;
-            accPremiumPerShare +=
-                (premiumReward * (1e18)) /
-                (totalStakingBalance);
-            return
-                ((real_balance * accPremiumPerShare) / (1e18)) -
-                (user.premiumDebt);
-        } else {
-            return 0;
-        }
-    }
-
-    /**
-     * @notice view the pool name (only for test, delete when mainnet)
-     */
-    function getPoolName() public view returns (string memory) {
-        string memory name = poolInfo.poolName;
-        return name;
+        _pendingPremium =
+            (real_balance * accPremiumPerShare) /
+            (1e18) -
+            (user.premiumDebt);
     }
 
     /**
@@ -343,7 +278,7 @@ contract InsurancePool {
      * @param _userAddress: User's address
      * @return The amount that the user can unlock
      */
-    function getUnlockedfor(address _userAddress)
+    function getUnlockedFor(address _userAddress)
         public
         view
         returns (uint256)
@@ -372,6 +307,9 @@ contract InsurancePool {
     // ************************************ Owner Functions *********************************** //
     // ---------------------------------------------------------------------------------------- //
 
+    /**
+     * @notice Open the purchase incentive program
+     */
     function openPurchaseIncentive() public onlyOwner {
         require(
             purchaseIncentive == false,
@@ -381,6 +319,9 @@ contract InsurancePool {
         emit PurchaseIncentiveOn(block.timestamp);
     }
 
+    /**
+     * @notice Close the purchase incentive program
+     */
     function closePurchaseIncentive() public onlyOwner {
         require(
             purchaseIncentive == true,
@@ -399,17 +340,17 @@ contract InsurancePool {
     }
 
     /**
-     * @notice Set the reward distribution
+     * @notice Set the premium reward distribution
      * @param _newDistribution: New distribution [LP, Emergency, Lottery]
      */
-    function setRewardDistribution(uint256[3] memory _newDistribution)
+    function setIncomeDistribution(uint256[3] memory _newDistribution)
         public
         onlyOwner
     {
         uint256 sum = _newDistribution[0] +
             _newDistribution[1] +
             _newDistribution[2];
-        require(sum == 100, "reward distribution must sum to 100");
+        require(sum == 100, "Reward distribution must sum to 100");
 
         for (uint256 i = 0; i < 3; i++) {
             rewardDistribution[i] = _newDistribution[i];
@@ -448,37 +389,17 @@ contract InsurancePool {
     // ---------------------------------------------------------------------------------------- //
 
     /**
-     * @notice Update the pool's reward status for degis & premium
-     * Every time the asset changes with a call update it
+     * @notice Update the pool's reward status for premium
+     *         When to update:
+     *              1. RewardCollected changes
+     *              2. TotalStakingBalance changes
      */
     function updatePoolReward() internal {
-        if (block.number < poolInfo.lastRewardBlock) {
-            return;
-        }
-
-        if (totalStakingBalance == 0) {
-            poolInfo.lastRewardBlock = block.number;
-            return;
-        }
-
-        // Calculate the degis reward for the whole pool and mint those tokens
-        uint256 blocks = block.number - poolInfo.lastRewardBlock;
-        uint256 degisReward = poolInfo.degisPerBlock * blocks;
-        DEGIS.mint(address(this), degisReward);
-
-        // Update the accDegisPerShare status
-        poolInfo.accDegisPerShare +=
-            (degisReward * (1e18)) /
-            (totalStakingBalance);
-
         // Update the accPremiumPerShare status
         uint256 premiumReward = rewardCollected - poolInfo.lastRewardCollected;
         poolInfo.accPremiumPerShare +=
             (premiumReward * (1e18)) /
             (totalStakingBalance);
-
-        // Update lastRewardBlock
-        poolInfo.lastRewardBlock = block.number;
     }
 
     /**
@@ -503,24 +424,16 @@ contract InsurancePool {
         external
         notZeroAddress(_userAddress)
     {
-        require(_amount > 0, "can not deposit 0");
+        require(_amount > 0, "Can not deposit 0");
 
         UserInfo storage user = userInfo[_userAddress];
         updatePoolReward();
 
         uint256 real_balance = getRealBalance(_userAddress);
 
-        // If this is not the first deposit, give his Degis reward
-        if (real_balance > 0) {
-            uint256 pending = ((real_balance * poolInfo.accDegisPerShare) /
-                (1e18)) - (user.rewardDebt);
-            safeDegisTransfer(_userAddress, pending);
-        }
-
         _deposit(_userAddress, _amount);
 
         real_balance = getRealBalance(_userAddress);
-        user.rewardDebt = (real_balance * (poolInfo.accDegisPerShare)) / (1e18);
 
         user.premiumDebt =
             (real_balance * (poolInfo.accPremiumPerShare)) /
@@ -563,10 +476,6 @@ contract InsurancePool {
         UserInfo storage user = userInfo[_userAddress];
 
         if (real_balance > 0) {
-            uint256 pending_degis = ((real_balance *
-                poolInfo.accDegisPerShare) / (1e18)) - (user.rewardDebt);
-            safeDegisTransfer(_userAddress, pending_degis);
-
             uint256 pending_premium = ((real_balance *
                 poolInfo.accPremiumPerShare) / (1e18)) - (user.premiumDebt);
             USDT.safeTransfer(_userAddress, pending_premium);
@@ -576,7 +485,6 @@ contract InsurancePool {
 
         real_balance = getRealBalance(_userAddress);
 
-        user.rewardDebt = (real_balance * (poolInfo.accDegisPerShare)) / (1e18);
         user.premiumDebt =
             (real_balance * (poolInfo.accPremiumPerShare)) /
             (1e18);
@@ -606,9 +514,6 @@ contract InsurancePool {
 
         if (purchaseIncentive == true) {
             updatePoolReward();
-            buyerDebt[_userAddress] =
-                (poolInfo.accDegisPerShare * _premium) /
-                1e18;
         }
 
         emit BuyNewPolicy(_userAddress, _premium, _payoff);
@@ -628,8 +533,7 @@ contract InsurancePool {
         updatePoolReward();
 
         if (purchaseIncentive == true) {
-            uint256 incentive = ((poolInfo.accDegisPerShare * _premium) /
-                1e18) - buyerDebt[_userAddress];
+            uint256 incentive = 5e18;
             DEGIS.mint(_userAddress, incentive);
             emit SendPurchaseIncentive(_userAddress, incentive);
         }
@@ -707,8 +611,6 @@ contract InsurancePool {
         uint256 _realPayoff,
         address _userAddress
     ) public notZeroAddress(_userAddress) {
-        updatePoolReward();
-
         // Unlock the max payoff volume
         lockedBalance -= _payoff;
         // Count the real payoff volume
@@ -725,6 +627,7 @@ contract InsurancePool {
             doDiv(rewardDistribution[2], 100)) / 1e18;
 
         rewardCollected += premiumToLP;
+        updatePoolReward();
 
         // transfer some reward to emergency pool and lottery pool
         USDT.safeTransfer(address(emergencyPool), premiumToEmergency);
@@ -735,28 +638,6 @@ contract InsurancePool {
 
         updateLPValue();
         USDT.safeTransfer(_userAddress, _realPayoff);
-    }
-
-    /**
-     * @notice harvest your degis reward
-     * @param _userAddress: the address of the degis claimer
-     */
-    function harvestDegisReward(address _userAddress)
-        public
-        notZeroAddress(_userAddress)
-    {
-        UserInfo storage user = userInfo[_userAddress];
-        updatePoolReward();
-
-        uint256 real_balance = getRealBalance(_userAddress);
-
-        if (real_balance > 0) {
-            uint256 pending = ((real_balance * poolInfo.accDegisPerShare) /
-                (1e18)) - (user.rewardDebt);
-            safeDegisTransfer(_userAddress, pending);
-        }
-
-        user.rewardDebt = (real_balance * (poolInfo.accDegisPerShare)) / (1e18);
     }
 
     /**

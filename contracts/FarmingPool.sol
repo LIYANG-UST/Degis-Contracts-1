@@ -5,9 +5,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ILPToken.sol";
 import "./interfaces/IDegisToken.sol";
+import "./interfaces/IFarmingPool.sol";
 
-contract FarmingPool {
+contract FarmingPool is IFarmingPool {
     using SafeERC20 for IERC20;
+
+    address public owner;
 
     uint256 public _nextPoolId; // poolId starts from 1, zero means not in the farm
 
@@ -25,18 +28,13 @@ contract FarmingPool {
         uint256 rewardDebt; // degis reward debt
         uint256 stakingBalance; // the amount of a user's staking in the pool
     }
-    mapping(address => UserInfo) userInfo;
+    // poolId => userAddress => userInfo
+    mapping(uint256 => mapping(address => UserInfo)) userInfo;
 
+    // The reward token is degis
     IDegisToken degis;
 
-    uint256 public startBlock;
-
-    event Stake(address _staker, uint256 _poolId, uint256 _amount);
-    event Withdraw(address _staker, uint256 _poolId, uint256 _amount);
-    event Harvest(uint256 _poolId, address _to);
-    event NewPoolAdded(address _lpToken);
-
-    error AlreadyInPool(address _lpToken);
+    uint256 public startBlock; // Farming starts from a certain block number
 
     constructor(address _degis, uint256 _startBlock) {
         degis = IDegisToken(_degis);
@@ -44,19 +42,75 @@ contract FarmingPool {
         _nextPoolId = 1;
     }
 
-    /// @notice Add a new lp to the pool. Can only be called by the owner.
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function");
+        _;
+    }
+
+    /**
+     * @notice The address can not be zero
+     */
+    modifier notZeroAddress(address _address) {
+        require(_address != address(0), "the address can not be zero address");
+        _;
+    }
+
+    /**
+     * @notice Check the amount of pending degis reward
+     * @param _poolId: PoolId of this farming pool
+     * @param _userAddress: User address
+     */
+    function pendingDegis(uint256 _poolId, address _userAddress)
+        public
+        view
+        notZeroAddress
+        returns (uint256)
+    {
+        PoolInfo storage poolInfo = poolList[_poolId];
+
+        if (block.number < poolInfo.lastRewardBlock) return 0;
+
+        UserInfo storage user = userInfo[_poolId][_userAddress];
+
+        uint256 lp_balance = poolInfo.lpToken.balanceOf(_userAddress);
+
+        uint256 accDegisPerShare = poolInfo.accDegisPerShare;
+
+        if (lp_balance > 0) {
+            // Deigs amount given to this pool
+            uint256 blocks = block.number - poolInfo.lastRewardBlock;
+            uint256 degisReward = poolInfo.degisPerBlock * blocks;
+
+            // Update accDegisPerShare
+            accDegisPerShare += (degisReward * 1e18) / lp_balance;
+
+            uint256 pending = ((user.stakingBalance * accDegisPerShare) /
+                1e18) - user.rewardDebt;
+            return pending;
+        } else {
+            return 0;
+        }
+    }
+
+    /**
+     * @notice Add a new lp to the pool. Can only be called by the owner.
+     * @param _lpToken: LP token address
+     * @param _degisPerBlock: Reward distribution per block for this new pool
+     * @param _withUpdate: Whether update all pools' status
+     */
     function add(
         address _lpToken,
         uint256 _degisPerBlock,
-        bool _isUpdate
+        bool _withUpdate
     ) public onlyOwner {
+        // Check if already exists
         bool isInPool = _alreadyInPool(_lpToken);
 
         if (isInPool) {
             revert AlreadyInPool(_lpToken);
         }
 
-        if (_isUpdate) {
+        if (_withUpdate) {
             massUpdatePools();
         }
 
@@ -72,6 +126,8 @@ contract FarmingPool {
                 accDegisPerShare: 0
             })
         );
+
+        // Store the poolId and set the farming status to true
         poolMapping[_lpToken] = _nextPoolId;
         isFarming[_nextPoolId] = true;
 
@@ -82,15 +138,16 @@ contract FarmingPool {
 
     /**
      * @notice Update the degisPerBlock for a specific pool (set to 0 to stop farming)
-     * @param _poolId: Id of the pool
+     * @param _poolId: Id of the farming pool
      * @param _degisPerBlock: New reward amount per block
      * @param _withUpdate: Whether update all the pool
      */
-    function set(
+    function setDegisReward(
         uint256 _poolId,
         uint256 _degisPerBlock,
         bool _withUpdate
     ) public onlyOwner {
+        // Ensure there already exists this pool
         require(
             poolList[_poolId].lastRewardBlock != 0,
             "no such pool, your poolId may be wrong"
@@ -99,13 +156,28 @@ contract FarmingPool {
             massUpdatePools();
         }
 
-        poolInfo[_poolId].degisPerBlock = _degisPerBlock;
+        if (isFarming[_poolId] == false && _degisPerBlock > 0) {
+            isFarming[_poolId] = true;
+            emit RestartFarmingPool(_poolId, block.number);
+        }
+
+        if (_degisPerBlock == 0) {
+            isFarming[_poolId] = false;
+            emit StopFarmingPool(_poolId, block.number);
+        }
+        poolList[_poolId].degisPerBlock = _degisPerBlock;
     }
 
+    /**
+     * @notice Stake LP token into the farming pool
+     * @param _poolId: Id of the farming pool
+     * @param _amount: Staking amount
+     */
     function stake(uint256 _poolId, uint256 _amount) public {
-        PoolInfo storage pool = poolInfo[_poolId];
+        PoolInfo storage pool = poolList[_poolId];
         UserInfo storage user = userInfo[_poolId][msg.sender];
 
+        // Must update first!!
         updatePool(_poolId);
 
         if (user.stakingBalance > 0) {
@@ -128,8 +200,13 @@ contract FarmingPool {
         emit Stake(msg.sender, _poolId, _amount);
     }
 
+    /**
+     * @notice Withdraw lptoken from the pool
+     * @notice _poolId: Id of the farming pool
+     * @notice _amount: Amount of lp tokens to withdraw
+     */
     function withdraw(uint256 _poolId, uint256 _amount) public {
-        PoolInfo storage pool = poolInfo[_poolId];
+        PoolInfo storage pool = poolList[_poolId];
         UserInfo storage user = userInfo[_poolId][msg.sender];
 
         require(user.stakingBalance >= _amount, "not enough balance");
@@ -150,8 +227,12 @@ contract FarmingPool {
         emit Withdraw(msg.sender, _poolId, _amount);
     }
 
-    function updatePool(uint256 _poolId) {
-        PoolInfo storage pool = poolInfo[_pid];
+    /**
+     * @notice Update the pool's reward status
+     * @param _poolId: Id of the farming pool
+     */
+    function updatePool(uint256 _poolId) public {
+        PoolInfo storage pool = poolList[_poolId];
         if (block.number <= pool.lastRewardBlock) {
             return;
         }
@@ -163,19 +244,22 @@ contract FarmingPool {
         uint256 blocks = block.number - pool.lastRewardBlock;
         uint256 degisReward = blocks * pool.degisPerBlock;
 
-        degis.mint(address(this), sushiReward);
+        // Don't forget to set the farming pool as minter
+        degis.mint(address(this), degisReward);
 
         pool.accDegisPerShare += degisReward / lpSupply;
         pool.lastRewardBlock = block.number;
     }
 
-    /// @notice Harvest proceeds for transaction sender to `to`.
-    /// @param _poolId The index of the pool. See `poolInfo`.
-    /// @param _to Receiver of DEGIS rewards.
+    /**
+     * @notice Harvest the degis reward and can be sent to another address
+     * @param _poolId: Id of the farming pool
+     * @param _to Receiver of degis rewards.
+     */
     function harvest(uint256 _poolId, address _to) public {
         updatePool(_poolId);
-        PoolInfo memory pool = poolInfo[_poolId];
-        UserInfo storage user = userInfo[pid][msg.sender];
+        PoolInfo memory pool = poolList[_poolId];
+        UserInfo storage user = userInfo[_poolId][msg.sender];
 
         uint256 pendingReward = (user.stakingBalance * pool.accDegisPerShare) /
             (1e18) -
@@ -186,10 +270,10 @@ contract FarmingPool {
 
         // Interactions
         if (pendingReward != 0) {
-            degis.safeTransfer(_to, pendingDegis);
+            degis.safeTransfer(_to, pendingReward);
         }
 
-        emit Harvest(msg.sender, pid, pendingDegis);
+        emit Harvest(msg.sender, _to, _poolId, pendingReward);
     }
 
     /**
@@ -198,11 +282,11 @@ contract FarmingPool {
      * @param _amount: Amount to transfer
      */
     function safeDegisTransfer(address _to, uint256 _amount) internal {
-        uint256 DegisBalance = DEGIS.balanceOf(address(this));
+        uint256 DegisBalance = degis.balanceOf(address(this));
         if (_amount > DegisBalance) {
             DEGIS.transfer(_to, DegisBalance);
         } else {
-            DEGIS.transfer(_to, _amount);
+            degis.transfer(_to, _amount);
         }
     }
 
@@ -210,10 +294,10 @@ contract FarmingPool {
      * @notice Update all farming pools (except for those stopped)
      */
     function massUpdatePools() public {
-        uint256 length = poolInfo.length;
+        uint256 length = poolList.length;
         for (uint256 poolId = 0; poolId < length; poolId++) {
             if (isFarming[poolId] == false) continue;
-            else updatePool(pid);
+            else updatePool(poolId);
         }
     }
 

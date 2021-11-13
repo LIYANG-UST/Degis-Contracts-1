@@ -42,6 +42,4 @@ interface IInsurancePool {
         uint256,
         address
     ) external;
-
-    function harvestDegisReward(address) external;
 }
