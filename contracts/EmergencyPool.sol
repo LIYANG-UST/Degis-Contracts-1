@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "./interfaces/IEmergencyPool.sol";
 
-contract EmergencyPool is Ownable {
+contract EmergencyPool is Ownable, IEmergencyPool {
     using SafeERC20 for IERC20;
+
+    string public name = "Degis Emergency Pool";
 
     // This is the address of USDC (maybe usd-anything).
     IERC20 public USDC_TOKEN;
@@ -22,27 +25,9 @@ contract EmergencyPool is Ownable {
     PoolInfo poolInfo;
 
     constructor(address _usdcAddress) {
-        transferOwnership(msg.sender);
         USDC_TOKEN = IERC20(_usdcAddress);
-        emergencyBalance = 0; // You do not need to initialize an uint as 0
+
         poolInfo = PoolInfo("Degis Emergency Pool", 666);
-    }
-
-    event Deposit(address indexed userAddress, uint256 amount);
-    event Withdraw(address indexed userAddress, uint256 amount);
-
-    /**
-     * @notice view function, show the pool's name
-     */
-    function getPoolName() public view returns (string memory) {
-        return poolInfo.poolName;
-    }
-
-    /**
-     * @notice view function, show the pool's id
-     */
-    function getPoolId() public view returns (uint256) {
-        return poolInfo.poolId;
     }
 
     /**

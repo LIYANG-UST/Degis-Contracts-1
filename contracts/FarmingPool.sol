@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.5;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import ".interfaces/ILPToken.sol";
-import ".interfaces/IDegisToken.sol";
+import "./interfaces/ILPToken.sol";
+import "./interfaces/IDegisToken.sol";
 
 contract FarmingPool {
     using SafeERC20 for IERC20;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.5;
+pragma solidity 0.8.9;
 
 import "./interfaces/ISigManager.sol";
 
@@ -11,9 +11,9 @@ contract SigManager is ISigManager {
     bytes32 internal _SUBMIT_APPLICATION_TYPEHASH;
     bytes32 internal _SUBMIT_CLAIM_TYPEHASH;
 
-    event SignerAdded(address indexed _newSigner);
-    event SignerRemoved(address indexed _oldSigner);
-
+    /**
+     *
+     */
     constructor() {
         owner = msg.sender;
 
