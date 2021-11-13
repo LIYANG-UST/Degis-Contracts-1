@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.5;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.9;
+// pragma experimental ABIEncoderV2; // After solidity 0.8.0, ABIEncoderV2 is enabled by default
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
@@ -12,8 +12,9 @@ contract MockUSD is ERC20 {
         _mint(msg.sender, MOCK_SUPPLY);
     }
 
-    // Everyone can mint, have fun
+    // Everyone can mint, have fun for test
     function mint(address account, uint256 value) public {
+        require(value <= 10000e18, "Please mint less than 10k every time");
         _mint(account, value);
     }
 }

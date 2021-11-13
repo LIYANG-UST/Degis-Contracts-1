@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.5;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -33,4 +33,7 @@ interface IDegisToken is IERC20 {
     event OwnerChanged(address indexed _oldOwner, address indexed _newOwner);
     event BurnerChanged(address indexed _oldBurner, address indexed _newBurner);
     event ReleaseOwnership(address indexed _oldOwner);
+
+    event MintByOwner(address _account, uint256 _amount);
+    event CloseOwnerMint(address indexed _owner, uint256 _blockNumber);
 }

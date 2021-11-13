@@ -1,32 +1,67 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.5;
+pragma solidity 0.8.9;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import "./interfaces/IDegisToken.sol";
 
 /**@title  Degis Token
- * @notice DegisToken has an owner, a minter and a burner.
- *         When lauched on mainnet, the owner may be removed.
+ * @notice DegisToken inherits from ERC20Votes which contains the ERC20 Permit.
+ *         DegisToken can use the permit function rather than approve + transferFrom.
+ *
+ *         DegisToken has an owner, a minter and a burner.
+ *         When lauched on mainnet, the owner may be removed or tranferred to a multisig.
  *         By default, the owner & minter account will be the one that deploys the contract.
- *         The minter may later be passed to InsurancePool.
- *         The burner may later be passed to EmergencyPool.
+ *         The minter may(and should) later be passed to InsurancePool.
+ *         The burner may(and should) later be passed to EmergencyPool.
  */
-contract DegisToken is ERC20 {
+contract DegisToken is ERC20Votes, IDegisToken {
+    // Some manager addresses
     address public minter;
     address public burner;
     address public owner;
 
-    event MinterChanged(address indexed _oldMinter, address indexed _newMinter);
-    event OwnerChanged(address indexed _oldOwner, address indexed _newOwner);
-    event BurnerChanged(address indexed _oldBurner, address indexed _newBurner);
-    event ReleaseOwnership(address indexed _oldOwner);
+    uint256 public constant DEGIS_CAP = 100000000 ether;
+
+    bool public ownerMintEnabled;
 
     /**
-     * @notice Use ERC20 constructor and set the owner, minter and burner
+     * @notice Use ERC20 + ERC20Permit constructor and set the owner, minter and burner
      */
-    constructor() ERC20("DegisToken", "DEGIS") {
+    constructor() ERC20("DegisToken", "DEGIS") ERC20Permit("DegisToken") {
         minter = msg.sender;
         owner = msg.sender;
         burner = msg.sender;
+
+        // At the beginning, owner can mint tokens to the lock degis contract
+        ownerMintEnabled = true;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this funciton");
+        _;
+    }
+
+    modifier notExceedCap(uint256 _amount) {
+        require(
+            totalSupply() + _amount <= cap(),
+            "DegisToken exceeds the cap (100 million)"
+        );
+        _;
+    }
+
+    /**
+     * @dev Returns the cap on the token's total supply.
+     */
+    function cap() public pure returns (uint256) {
+        return DEGIS_CAP;
+    }
+
+    /**
+     * @notice Owner will not be able to mint tokens, used when investor tokens are minted
+     */
+    function closeOwnerMint() public onlyOwner {
+        ownerMintEnabled = false;
+        emit CloseOwnerMint(owner, block.number);
     }
 
     /**
@@ -34,14 +69,15 @@ contract DegisToken is ERC20 {
      * @param _newMinter: New minter's address
      * @return Whether the minter has been changed
      */
-    function passMinterRole(address _newMinter) public returns (bool) {
-        require(
-            msg.sender == owner,
-            "Error! only the owner can change the minter"
-        );
+    function passMinterRole(address _newMinter)
+        public
+        onlyOwner
+        returns (bool)
+    {
+        address oldMinter = minter; // Temporarily store the old minter address for event usage
         minter = _newMinter;
 
-        emit MinterChanged(msg.sender, _newMinter);
+        emit MinterChanged(oldMinter, _newMinter);
         return true;
     }
 
@@ -50,11 +86,7 @@ contract DegisToken is ERC20 {
      * @param _newOwner: New owner's address
      * @return Whether the owner has been changed
      */
-    function passOwnership(address _newOwner) public returns (bool) {
-        require(
-            msg.sender == owner,
-            "Error! only the owner can change the owner"
-        );
+    function passOwnership(address _newOwner) public onlyOwner returns (bool) {
         owner = _newOwner;
 
         emit OwnerChanged(msg.sender, _newOwner);
@@ -66,14 +98,15 @@ contract DegisToken is ERC20 {
      * @param _newBurner: New burner's address
      * @return Whether the burner has been changed
      */
-    function passBurnerRole(address _newBurner) public returns (bool) {
-        require(
-            msg.sender == owner,
-            "Error! only the owner can change the owner"
-        );
+    function passBurnerRole(address _newBurner)
+        public
+        onlyOwner
+        returns (bool)
+    {
+        address oldBurner = burner; // Temporarily store the old burner address for event usage
         burner = _newBurner;
 
-        emit BurnerChanged(msg.sender, _newBurner);
+        emit BurnerChanged(oldBurner, _newBurner);
         return true;
     }
 
@@ -81,11 +114,7 @@ contract DegisToken is ERC20 {
      * @notice Release the ownership to zero address, can never get back !!!
      * @return Whether the ownership has been released
      */
-    function releaseOwnership() public returns (bool) {
-        require(
-            msg.sender == owner,
-            "Error! only the owner can release ownership"
-        );
+    function releaseOwnership() public onlyOwner returns (bool) {
         owner = address(0);
 
         emit ReleaseOwnership(msg.sender);
@@ -97,10 +126,28 @@ contract DegisToken is ERC20 {
      * @param _account: Receiver's address
      * @param _amount: Amount to be minted
      */
-    function mint(address _account, uint256 _amount) public {
-        require(msg.sender == minter, "Error! Msg.sender must be the minter");
+    function mint(address _account, uint256 _amount)
+        public
+        notExceedCap(_amount)
+    {
+        require(msg.sender == minter, "Only the minter can mint Degis Reward");
 
         _mint(_account, _amount); // ERC20 method with an event
+    }
+
+    /**
+     * @notice Mint tokens by the owner
+     * @param _account: Receiver's address (Should be the lockDegis contract)
+     * @param _amount: Amount to be minted
+     */
+    function mintByOwner(address _account, uint256 _amount)
+        public
+        onlyOwner
+        notExceedCap(_amount)
+    {
+        _mint(_account, _amount);
+
+        emit MintByOwner(_account, _amount);
     }
 
     /**
@@ -109,7 +156,7 @@ contract DegisToken is ERC20 {
      * @param _amount: amount to be burned
      */
     function burn(address _account, uint256 _amount) public {
-        require(msg.sender == burner, "Error! Msg.sender must be the burner");
+        require(msg.sender == burner, "Only the burner can call this function");
         _burn(_account, _amount);
     }
 }

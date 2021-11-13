@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.9;
 
 /**
  * @title  IPolicyFlow
@@ -42,8 +42,6 @@ interface IPolicyFlow {
     event FulfilledOracleRequest(uint256 _policyId, bytes32 _requestId);
     event PolicyOwnerTransfer(uint256 indexed _tokenId, address _newOwner);
     event DelayThresholdSet(uint256 _thresholdMin, uint256 _thresholdMax);
-    event SignerAdded(address indexed _newSigner);
-    event SignerRemoved(address indexed _oldSigner);
 
     /// @notice Function declarations
 

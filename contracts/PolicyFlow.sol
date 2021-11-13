@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.5;
+pragma solidity 0.8.9;
 
 import "./libraries/ToStrings.sol";
 import "./interfaces/IInsurancePool.sol";
@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "./interfaces/IPolicyToken.sol";
 import "./interfaces/IPolicyFlow.sol";
 import "./interfaces/IFlightOracle.sol";
+import "./interfaces/ISigManager.sol";
 
 /**
  * @title  PolicyFlow
@@ -29,9 +30,6 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
 
     uint256 constant PRODUCT_ID = 0;
 
-    bytes32 internal _SUBMIT_APPLICATION_TYPEHASH;
-    bytes32 internal _SUBMIT_CLAIM_TYPEHASH;
-
     uint256 public oracleResponse; // A test variable to store the oracle address
     uint256 fee;
     string private FLIGHT_STATUS_URL = "http://39.101.132.228:8000/live/";
@@ -42,55 +40,54 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     mapping(uint256 => uint256) resultList; // policyId => delay result
 
     address public owner;
+
+    ISigManager sigManager;
     IInsurancePool insurancePool;
     IPolicyToken policyToken;
     IFlightOracle flightOracle;
 
     // Minimum time before departure for applying
     uint256 public MIN_TIME_BEFORE_DEPARTURE = 24 hours;
+
+    // Parameters about the claim curve
     uint256 public MAX_PAYOFF = 180;
     uint256 public DELAY_THRESHOLD_MIN = 30;
     uint256 public DELAY_THRESHOLD_MAX = 240;
+
+    // Total amount of policies
     uint256 public Total_Policies;
 
-    // Mappings
     mapping(uint256 => PolicyInfo) policyList; // policyId => policyInfo
 
-    mapping(address => uint256[]) userPolicy; // uint256[]: those totalOrders of a user
+    mapping(address => uint256[]) userPolicy; // uint256[]: those policyIds of a user
     mapping(address => uint256) userPolicyCount; // userAddress => user policy amount
-
-    /// @notice validSigner is our server
-    mapping(address => bool) _isValidSigner;
 
     /// @notice Constructor Function
     constructor(
-        IInsurancePool _insurancePool,
-        IPolicyToken _policyToken,
-        address _oracleAddress
+        address _insurancePool,
+        address _policyToken,
+        address _flightOracle,
+        address _oracleAddress,
+        address _sigManager
     ) {
         // Set owner address
         owner = msg.sender;
 
-        // Set two interfaces' addresses
-        insurancePool = _insurancePool;
-        policyToken = _policyToken;
+        // Other contracts' interfaces
+        insurancePool = IInsurancePool(_insurancePool);
+        policyToken = IPolicyToken(_policyToken);
+        flightOracle = IFlightOracle(_flightOracle);
 
-        // Set oracle address
+        // Set oracle parameter
         oracleAddress = _oracleAddress;
         jobId = "cef74a7ff7ea4194ab97f00c89abef6b";
-
         setPublicChainlinkToken();
         fee = 1 * 10**18; // 1 LINK
 
         // Initialize the count (actually do not need to initialize)
         Total_Policies = 0;
 
-        _SUBMIT_APPLICATION_TYPEHASH = keccak256(
-            "DegisNewApplication(uint256 premium,uint256 payoff)"
-        );
-        _SUBMIT_CLAIM_TYPEHASH = keccak256(
-            "DegisSubmitClaim(uint256 policyOrder,uint256 premium,uint256 payoff)"
-        );
+        sigManager = ISigManager(_sigManager);
     }
 
     // ----------------------------------------------------------------------------------- //
@@ -129,40 +126,33 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     }
 
     /**
-     * @notice Check whether the address is a valid signer
-     * @param _address: The input address
-     * @return True: is a valid signer, can be used to sign the transaction
-     *         False: not a valid signer
-     */
-    function isValidSigner(address _address) public view returns (bool) {
-        return _isValidSigner[_address];
-    }
-
-    /**
      * @notice Show a user's policies (all)
      * @param _userAddress: User's address (buyer)
-     * @return User's policy details in string form
+     * @return User's all policy details
      */
-    function viewPolicy(address _userAddress)
+    function viewUserPolicy(address _userAddress)
         public
         view
         override
-        returns (string memory)
+        returns (PolicyInfo[] memory)
     {
         require(userPolicyCount[_userAddress] > 0, "no policy for this user");
 
         uint256 policyCount = userPolicyCount[_userAddress];
-        string memory result = " ";
+
+        PolicyInfo[] memory result = new PolicyInfo[](policyCount);
 
         for (uint256 i = 0; i < policyCount; i++) {
             uint256 policyId = userPolicy[_userAddress][i];
+
+            result[i] = policyList[policyId];
         }
         return result;
     }
 
     /**
      * @notice Get the policyInfo from its count/order
-     * @param _policyId: Total count of the policy = NFT tokenId
+     * @param _policyId: Total count/order of the policy = NFT tokenId
      * @return A list of information about this policy
      */
     function getPolicyInfoById(uint256 _policyId)
@@ -257,36 +247,6 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
         DELAY_THRESHOLD_MIN = _thresholdMin;
         DELAY_THRESHOLD_MAX = _thresholdMax;
         emit DelayThresholdSet(_thresholdMin, _thresholdMax);
-    }
-
-    /**
-     * @notice Add a signer into valid signer list
-     * @param _newSigner: The new signer address
-     */
-    function addSigner(address _newSigner) external notZeroAddress onlyOwner {
-        require(
-            isValidSigner(_newSigner) == false,
-            "this address is already a signer"
-        );
-        _isValidSigner[_newSigner] = true;
-        emit SignerAdded(_newSigner);
-    }
-
-    /**
-     * @notice Remove a signer from the valid signer list
-     * @param _oldSigner: The old signer address to be removed
-     */
-    function removeSigner(address _oldSigner)
-        external
-        notZeroAddress
-        onlyOwner
-    {
-        require(
-            isValidSigner(_oldSigner) == true,
-            "this address is not a signer"
-        );
-        _isValidSigner[_oldSigner] = false;
-        emit SignerRemoved(_oldSigner);
     }
 
     // ----------------------------------------------------------------------------------- //
