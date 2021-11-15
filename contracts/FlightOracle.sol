@@ -6,6 +6,8 @@ import "./interfaces/IPolicyFlow.sol";
 contract FlightOracle is ChainlinkClient {
     using Chainlink for Chainlink.Request;
 
+    address public owner;
+
     IPolicyFlow policyFlow;
 
     uint256 fee;
@@ -14,6 +16,19 @@ contract FlightOracle is ChainlinkClient {
     bytes32 private jobId;
 
     constructor(address _policyFlow) {
+        policyFlow = IPolicyFlow(_policyFlow);
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only the owner can call this function");
+        _;
+    }
+
+    function setURL(string memory _url) external onlyOwner {
+        FLIGHT_STATUS_URL = _url;
+    }
+
+    function setPolicyFlow(address _policyFlow) external onlyOwner {
         policyFlow = IPolicyFlow(_policyFlow);
     }
 

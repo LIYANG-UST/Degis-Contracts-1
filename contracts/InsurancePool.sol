@@ -4,34 +4,21 @@ pragma solidity 0.8.9;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/contracts/PRBMathUD60x18.sol";
+import "./InsurancePoolStore.sol";
 import "./interfaces/IDegisToken.sol";
 import "./interfaces/ILPToken.sol";
 import "./interfaces/IEmergencyPool.sol";
 import "./interfaces/IDegisLottery.sol";
 
-contract InsurancePool {
+contract InsurancePool is InsurancePoolStore {
+    using PRBMathUD60x18 for uint256;
+    using SafeERC20 for IERC20;
     // ---------------------------------------------------------------------------------------- //
     // *********************************** State Variables ************************************ //
     // ---------------------------------------------------------------------------------------- //
     string public constant name = "Degis FlightDelay InsurancePool";
 
-    using PRBMathUD60x18 for uint256;
-    using SafeERC20 for IERC20;
-
     address public owner;
-
-    address public policyFlow;
-
-    bool public purchaseIncentive;
-
-    struct UserInfo {
-        uint256 premiumDebt; // premium reward debt
-        uint256 assetBalance; // the amount of a user's staking in the pool
-        uint256 pendingBalance; // the amount in the unstake queue
-    }
-    mapping(address => UserInfo) userInfo;
-
-    mapping(address => uint256) buyerDebt;
 
     // ---------------------------------------------------------------------------------------- //
     // *********************************** Other Contracts ************************************ //
@@ -44,79 +31,8 @@ contract InsurancePool {
     IDegisLottery public degisLottery;
 
     // ---------------------------------------------------------------------------------------- //
-    // ************************************ State Variables *********************************** //
+    // ************************************* Constructor ************************************** //
     // ---------------------------------------------------------------------------------------- //
-
-    // 1 LP = LPValue(USD)
-    uint256 public LPValue;
-
-    // Total staking balance of the pool
-    uint256 public totalStakingBalance;
-
-    // Real staking balance = current staking balance - sum(unstake request in the queue)
-    uint256 public realStakingBalance;
-
-    // Locked balance is for potiential payoff
-    uint256 public lockedBalance;
-
-    // locked relation = locked balance / totalStakingBalance
-    uint256 public lockedRatio; //  1e18 = 1  1e17 = 0.1  1e19 = 10
-    uint256 public collateralFactor; //  1e18 = 1  1e17 = 0.1  1e19 = 10
-
-    // Available capacity for taking new
-    uint256 public availableCapacity;
-
-    // Premiums have been paid but the policies haven't expired
-    uint256 public activePremiums;
-
-    // Total income from premium
-    uint256 public rewardCollected;
-
-    // [0]: LP, [1]: Lottery, [2]: Emergency
-    uint256[3] public rewardDistribution;
-
-    // Basic information about the pool
-    struct PoolInfo {
-        uint256 totalLP; // total lp amount
-        uint256 accPremiumPerShare;
-        uint256 lastRewardCollected;
-    }
-    PoolInfo poolInfo;
-
-    //  of every unstake request in the queue
-    struct UnstakeRequest {
-        uint256 pendingAmount;
-        uint256 fulfilledAmount;
-        bool isPaidOut; // if this request has been fully paid out // maybe redundant
-    }
-
-    // a user's unstake requests
-    mapping(address => UnstakeRequest[]) private unstakeRequests;
-
-    // list of all unstake users
-    address[] private unstakeQueue;
-
-    // current pointer of the unstake request queue
-    // uint256 private unstakePointer;  // currently not used
-
-    event Stake(address indexed userAddress, uint256 amount);
-    event Unstake(address indexed userAddress, uint256 amount);
-    event ChangeCollateralFactor(address indexed onwerAddress, uint256 factor);
-    event SetPolicyFlow(address _policyFlowAddress);
-    event BuyNewPolicy(
-        address indexed userAddress,
-        uint256 premium,
-        uint256 payout
-    );
-    event OwnerChanged(address oldOwner, address newOwner);
-    event ChangeRewardDistribution(
-        uint256 _toLP,
-        uint256 _toEmergency,
-        uint256 _toLottery
-    );
-    event PurchaseIncentiveOn(uint256 _blocknumber);
-    event PurchaseIncentiveOff(uint256 _blocknumber);
-    event SendPurchaseIncentive(address _userAddress, uint256 _amount);
 
     /**
      * @notice constructor function
@@ -124,8 +40,7 @@ contract InsurancePool {
      * @param _degis: address of the degis token
      * @param _emergencyPool: address of the emergency pool
      * @param _lptoken: address of LP token
-     * @param _usdcAddress: address of USDC
-     * @param _degisPerBlock: degis reward per block
+     * @param _usdtAddress: address of USDC
      */
     constructor(
         uint256 _factor,
@@ -133,7 +48,7 @@ contract InsurancePool {
         address _emergencyPool,
         address _lptoken,
         address _degisLottery,
-        address _usdcAddress
+        address _usdtAddress
     ) {
         owner = msg.sender;
 
@@ -148,7 +63,7 @@ contract InsurancePool {
         );
 
         DEGIS = IDegisToken(_degis);
-        USDT = IERC20(_usdcAddress);
+        USDT = IERC20(_usdtAddress);
         DLPToken = ILPToken(_lptoken);
         emergencyPool = IEmergencyPool(_emergencyPool);
         degisLottery = IDegisLottery(_degisLottery);
@@ -192,6 +107,14 @@ contract InsurancePool {
      */
     modifier notZeroAddress(address _address) {
         require(_address != address(0), "the address can not be zero address");
+        _;
+    }
+
+    modifier afterFrozenTime(address _userAddress) {
+        require(
+            block.timestamp >= userInfo[_userAddress].depositTime,
+            "Can not withdraw until the fronzen time"
+        );
         _;
     }
 
@@ -332,6 +255,14 @@ contract InsurancePool {
     }
 
     /**
+     * @notice Set a new punish time
+     * @param _newFrozenTime: New punish time, in timestamp(s)
+     */
+    function setFrozenTime(uint256 _newFrozenTime) external onlyOwner {
+        frozenTime = _newFrozenTime;
+    }
+
+    /**
      * @notice Set the address of policyFlow
      */
     function setPolicyFlow(address _policyFlowAddress) public onlyOwner {
@@ -439,19 +370,22 @@ contract InsurancePool {
             (real_balance * (poolInfo.accPremiumPerShare)) /
             (1e18);
 
+        user.depositTime = block.timestamp;
+
         poolInfo.lastRewardCollected = rewardCollected;
 
         emit Stake(_userAddress, _amount);
     }
 
     /**
-     * @notice unstake: a user want to unstake some amount
-     * @param _userAddress: user's address
-     * @param _amount: the amount that the user want to unstake
+     * @notice Unstake from the pool
+     * @param _userAddress: User's address
+     * @param _amount: The amount that the user want to unstake
      */
     function unstake(address _userAddress, uint256 _amount)
         external
         notZeroAddress(_userAddress)
+        afterFrozenTime(_userAddress)
     {
         uint256 real_balance = getRealBalance(_userAddress);
         require(
@@ -521,9 +455,10 @@ contract InsurancePool {
     }
 
     /**
-     * @notice update the status when a policy expires
-     * @param _premium: the policy's premium
-     * @param _payoff: the policy's payoff
+     * @notice Update the status when a policy expires
+     * @param _premium: Policy's premium
+     * @param _payoff: Policy's payoff
+     * @param _userAddress: User's address
      */
     function updateWhenExpire(
         uint256 _premium,

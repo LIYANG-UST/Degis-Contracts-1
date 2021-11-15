@@ -20,7 +20,7 @@ contract DegisToken is ERC20Votes, IDegisToken {
     address public burner;
     address public owner;
 
-    uint256 public constant DEGIS_CAP = 100000000 ether;
+    uint256 public constant DEGIS_CAP = 10e8 ether;
 
     bool public ownerMintEnabled;
 

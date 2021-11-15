@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.9;
 
 interface IInsurancePool {
     event Stake(address indexed userAddress, uint256 amount);
@@ -11,6 +11,8 @@ interface IInsurancePool {
         uint256 payout
     );
     event OwnerChanged(address oldOwner, address newOwner);
+
+    function name() external view returns (string memory);
 
     function getTotalLocked() external view returns (uint256);
 
