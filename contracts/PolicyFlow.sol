@@ -5,7 +5,6 @@ import "./libraries/ToStrings.sol";
 import "./interfaces/IInsurancePool.sol";
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "./interfaces/IPolicyToken.sol";
 import "./interfaces/IPolicyFlow.sol";
 import "./interfaces/IFlightOracle.sol";
@@ -26,7 +25,6 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     /// @notice Using some libraries
     using Chainlink for Chainlink.Request;
     using Strings for uint256;
-    using ECDSA for bytes32;
 
     uint256 constant PRODUCT_ID = 0;
 
@@ -84,9 +82,6 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
         setPublicChainlinkToken();
         fee = 1 * 10**18; // 1 LINK
 
-        // Initialize the count (actually do not need to initialize)
-        Total_Policies = 0;
-
         sigManager = ISigManager(_sigManager);
     }
 
@@ -133,7 +128,6 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     function viewUserPolicy(address _userAddress)
         public
         view
-        override
         returns (PolicyInfo[] memory)
     {
         require(userPolicyCount[_userAddress] > 0, "no policy for this user");
@@ -158,11 +152,9 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     function getPolicyInfoById(uint256 _policyId)
         public
         view
-        override
-        returns (PolicyInfo memory)
+        returns (PolicyInfo memory policy)
     {
-        PolicyInfo memory policy = policyList[_policyId];
-        return policy;
+        policy = policyList[_policyId];
     }
 
     /**
@@ -173,9 +165,9 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     function getUserPolicyCount(address _userAddress)
         public
         view
-        returns (uint256)
+        returns (uint256 policyAmount)
     {
-        return userPolicyCount[_userAddress];
+        policyAmount = userPolicyCount[_userAddress];
     }
 
     /**
@@ -186,9 +178,9 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     function findPolicyBuyerById(uint256 _policyId)
         public
         view
-        returns (address)
+        returns (address buyerAddress)
     {
-        return policyList[_policyId].buyerAddress;
+        buyerAddress = policyList[_policyId].buyerAddress;
     }
 
     // ----------------------------------------------------------------------------------- //
@@ -199,7 +191,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
      * @notice Change the job Id
      * @param _jobId: New oracle job Id
      */
-    function changeJobId(bytes32 _jobId) public onlyOwner {
+    function changeJobId(bytes32 _jobId) external onlyOwner {
         jobId = _jobId;
     }
 
@@ -207,7 +199,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
      * @notice Change the oracle fee
      * @param _fee: New oracle fee
      */
-    function changeFee(uint256 _fee) public onlyOwner {
+    function changeFee(uint256 _fee) external onlyOwner {
         fee = _fee;
     }
 
@@ -215,33 +207,36 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
      * @notice Change the max payoff
      * @param _newMaxPayoff: New maxpayoff amount
      */
-    function changeMaxPayoff(uint256 _newMaxPayoff) public onlyOwner {
+    function changeMaxPayoff(uint256 _newMaxPayoff) external onlyOwner {
         MAX_PAYOFF = _newMaxPayoff;
     }
 
     /**
-     * @notice Change the min time before departure
-     * @param _newTime: New time set
+     * @notice How long before departure when users can not buy new policies
+     * @param _newMinTime: New time set
      */
-    function changeMinTimeBeforeDeparture(uint256 _newTime) public onlyOwner {
-        MIN_TIME_BEFORE_DEPARTURE = _newTime;
+    function changeMinTimeBeforeDeparture(uint256 _newMinTime)
+        external
+        onlyOwner
+    {
+        MIN_TIME_BEFORE_DEPARTURE = _newMinTime;
     }
 
     /**
      * @notice Change the oracle address
      * @param _oracleAddress: New oracle address
      */
-    function changeOrcaleAddress(address _oracleAddress) public onlyOwner {
+    function changeOrcaleAddress(address _oracleAddress) external onlyOwner {
         oracleAddress = _oracleAddress;
     }
 
     /**
-     * @notice Set the new delay threshold
-     * @param _thresholdMin: New minimal threshold
+     * @notice Set the new delay threshold used for calculating payoff
+     * @param _thresholdMin: New minimum threshold
      * @param _thresholdMax: New maximum threshold
      */
     function setDelayThreshold(uint256 _thresholdMin, uint256 _thresholdMax)
-        public
+        external
         onlyOwner
     {
         DELAY_THRESHOLD_MIN = _thresholdMin;
@@ -254,7 +249,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     // ----------------------------------------------------------------------------------- //
 
     /**
-     * @notice Start a new policy application
+     * @notice Buy a new policy application
      * @param _userAddress: User's address (buyer)
      * @param _productId: ID of the purchased product (0: flightdelay; 1,2,3...: others) (different products)
      * @param _flightNumber: Flight number string (e.g. "AQ1299")
@@ -270,8 +265,13 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
         uint256 _premium,
         uint256 _departureDate,
         uint256 _landingDate,
+        uint256 _deadline,
         bytes calldata signature
-    ) public override returns (uint256 _policyId) {
+    ) public returns (uint256 _policyId) {
+        require(
+            block.timestamp <= _deadline,
+            "expired deadline, please resubmit a transaction"
+        );
         require(
             _productId == PRODUCT_ID,
             "you are calling the wrong product contract"
@@ -282,12 +282,13 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
             "it's too close to the departure time, you cannot buy this policy"
         );
 
+        // Should be signed by operators
         _checkSignature(
             signature,
             _flightNumber,
-            msg.sender,
+            _userAddress,
             _premium,
-            MAX_PAYOFF
+            _deadline
         );
 
         // Check the policy with the insurance pool status
@@ -336,7 +337,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
         string memory _date,
         string memory _path,
         bool _forceUpdate
-    ) public override {
+    ) public {
         require(
             block.timestamp >= policyList[_policyId].landingDate,
             "can only claim a policy after its landing"
@@ -405,14 +406,16 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     // ----------------------------------------------------------------------------------- //
 
     /**
-     * @notice Do the final settlement
+     * @notice Do the final settlement, called by FlightOracle contract
      * @param _requestId: Chainlink request id
      * @param _result: Delay result (minutes) given by oracle
      */
-    function finalSettlement(bytes32 _requestId, uint256 _result)
-        public
-        override
-    {
+    function finalSettlement(bytes32 _requestId, uint256 _result) public {
+        require(
+            msg.sender == address(flightOracle),
+            "this function should be called by FlightOracle contract"
+        );
+
         oracleResponse = _result;
 
         uint256 policyId = requestList[_requestId];
@@ -473,33 +476,6 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     }
 
     /**
-     * @notice Check whether the signature is valid
-     * @param signature: 65 byte array: [[v (1)], [r (32)], [s (32)]]
-     */
-    function _checkSignature(
-        bytes calldata signature,
-        string memory _flightNumber,
-        address _address,
-        uint256 _premium,
-        uint256 _payoff
-    ) internal view {
-        bytes32 hashData = keccak256(
-            abi.encode(
-                _SUBMIT_CLAIM_TYPEHASH,
-                _flightNumber,
-                _address,
-                _premium,
-                _payoff
-            )
-        );
-        address signer = hashData.toEthSignedMessageHash().recover(signature);
-        require(
-            _isValidSigner[signer],
-            "Can only submitted by authorized signer"
-        );
-    }
-
-    /**
      * @notice update the policy when it is expired
      * @param _premium: the premium of the policy sold
      * @param _payoff: the payoff of the policy sold
@@ -556,5 +532,29 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
 
         payoff = payoff * 1e18;
         return payoff;
+    }
+
+    /**
+     * @notice Check whether the signature is valid
+     * @param signature: 65 byte array: [[v (1)], [r (32)], [s (32)]]
+     * @param _flightNumber: Flight number
+     * @param _address: userAddress
+     * @param _premium: Premium of the policy
+     * @param _deadline:
+     */
+    function _checkSignature(
+        bytes calldata signature,
+        string memory _flightNumber,
+        address _address,
+        uint256 _premium,
+        uint256 _deadline
+    ) internal view {
+        sigManager.checkSignature(
+            signature,
+            _flightNumber,
+            _address,
+            _premium,
+            _deadline
+        );
     }
 }

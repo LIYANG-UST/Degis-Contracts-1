@@ -4,7 +4,7 @@ pragma solidity 0.8.9;
 contract InsurancePoolStore {
     address public policyFlow;
 
-    bool public purchaseIncentive;
+    uint256 public purchaseIncentiveAmount;
 
     uint256 frozenTime = 7 days; // 7 days
 
@@ -83,7 +83,10 @@ contract InsurancePoolStore {
         uint256 _toEmergency,
         uint256 _toLottery
     );
-    event PurchaseIncentiveOn(uint256 _blocknumber);
-    event PurchaseIncentiveOff(uint256 _blocknumber);
+    event PurchaseIncentiveChanged(
+        uint256 _blocknumber,
+        uint256 _purchaseIncentiveAmount
+    );
+
     event SendPurchaseIncentive(address _userAddress, uint256 _amount);
 }

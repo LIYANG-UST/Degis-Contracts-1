@@ -13,7 +13,7 @@ contract PolicyToken is ERC721Enumerable, Ownable {
     struct PolicyTokenURIParam {
         uint256 productId;
         string flightNumber;
-        uint256 totalOrder;
+        uint256 policyId;
         address owner;
         uint256 premium;
         uint256 payoff;
@@ -166,7 +166,7 @@ contract PolicyToken is ERC721Enumerable, Ownable {
                     "FlightNumber: ",
                     _params.flightNumber,
                     "PolicyId: ",
-                    _params.totalOrder.toString(),
+                    _params.policyId.toString(),
                     ", ",
                     "BuyerAddress: ",
                     addressToString(_params.owner),

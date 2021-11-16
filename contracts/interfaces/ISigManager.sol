@@ -10,4 +10,12 @@ interface ISigManager {
     function removeSigner(address) external;
 
     function isValidSigner(address) external returns (bool);
+
+    function checkSignature(
+        bytes calldata signature,
+        string memory _flightNumber,
+        address _address,
+        uint256 _premium,
+        uint256 _deadline
+    ) external;
 }

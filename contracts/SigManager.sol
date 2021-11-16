@@ -2,8 +2,11 @@
 pragma solidity 0.8.9;
 
 import "./interfaces/ISigManager.sol";
+import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 
 contract SigManager is ISigManager {
+    using ECDSA for bytes32;
+
     address public owner;
 
     mapping(address => bool) _isValidSigner;
@@ -73,5 +76,36 @@ contract SigManager is ISigManager {
      */
     function isValidSigner(address _address) public view returns (bool) {
         return _isValidSigner[_address];
+    }
+
+    /**
+     * @notice Check signature when buying a new policy (avoid arbitrary premium amount)
+     * @param signature: 65 byte array: [[v (1)], [r (32)], [s (32)]]
+     * @param _flightNumber: Flight number
+     * @param _address: User address
+     * @param _premium: Policy premium
+     * @param _deadline: Deadline of a policy
+     */
+    function checkSignature(
+        bytes calldata signature,
+        string memory _flightNumber,
+        address _address,
+        uint256 _premium,
+        uint256 _deadline
+    ) external view {
+        bytes32 hashData = keccak256(
+            abi.encode(
+                _SUBMIT_CLAIM_TYPEHASH,
+                _flightNumber,
+                _address,
+                _premium,
+                _deadline
+            )
+        );
+        address signer = hashData.toEthSignedMessageHash().recover(signature);
+        require(
+            _isValidSigner[signer],
+            "Can only submitted by authorized signer"
+        );
     }
 }

@@ -1,15 +1,13 @@
 {
   "name": "degis",
-  "version": "0.1.0",
-  "description": "Decentralized Insurance",
+  "version": "0.6.0",
+  "description": "Degis - Decentralized Insurance Platform",
   "author": "liyang",
-  "homepage": "http://.",
   "dependencies": {
     "@chainlink/contracts": "^0.2.1",
-    "@openzeppelin/contracts": "^4.3.1",
+    "@openzeppelin/contracts": "^4.3.3",
     "@truffle/contract": "^4.3.26",
     "@truffle/hdwallet-provider": "^1.4.0",
-    "@uniswap/lib": "^5.0.0-alpha",
     "babel-polyfill": "^6.26.0",
     "babel-preset-env": "^1.7.0",
     "babel-preset-es2015": "^6.24.1",
@@ -19,7 +17,7 @@
     "chai-as-promised": "^7.1.1",
     "dotenv": "^10.0.0",
     "prb-math": "^2.2.0",
-    "web3": "1.3.4"
+    "web3": "^1.3.4"
   },
   "main": "truffle-config.js",
   "scripts": {
@@ -32,6 +30,6 @@
     "@chainlink/test-helpers": "0.0.7-alpha",
     "lite-server": "^2.6.1",
     "solc-0.8": "npm:solc@^0.8.9",
-    "truffle-plugin-verify": "^0.5.11"
+    "truffle-plugin-verify": "^0.5.18"
   }
 }

@@ -36,10 +36,10 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice constructor function
-     * @param _factor: initial collateral factor
-     * @param _degis: address of the degis token
-     * @param _emergencyPool: address of the emergency pool
-     * @param _lptoken: address of LP token
+     * @param _factor: Initial collateral factor
+     * @param _degis: Degis token address
+     * @param _emergencyPool: Emergency pool address
+     * @param _lptoken: LP token address
      * @param _usdtAddress: address of USDC
      */
     constructor(
@@ -71,12 +71,9 @@ contract InsurancePool is InsurancePoolStore {
         LPValue = 1e18;
 
         // Initial distribution, 0: LP 1: Emergency 2: Lottery(Staking)
-        rewardDistribution[0] = 80;
+        rewardDistribution[0] = 50;
         rewardDistribution[1] = 10;
-        rewardDistribution[2] = 10;
-
-        // Degis compensation when no payoff
-        purchaseIncentive = false;
+        rewardDistribution[2] = 40;
     }
 
     // ---------------------------------------------------------------------------------------- //
@@ -87,7 +84,7 @@ contract InsurancePool is InsurancePoolStore {
      * @notice Only the owner can call some functions
      */
     modifier onlyOwner() {
-        require(msg.sender == owner, "only the owner can call this function");
+        require(msg.sender == owner, "Only the owner can call this function");
         _;
     }
 
@@ -97,7 +94,7 @@ contract InsurancePool is InsurancePoolStore {
     modifier onlyPolicyFlow() {
         require(
             msg.sender == policyFlow,
-            "only the policyFlow contract can call this function"
+            "Only the policyFlow contract can call this function"
         );
         _;
     }
@@ -106,10 +103,13 @@ contract InsurancePool is InsurancePoolStore {
      * @notice The address can not be zero
      */
     modifier notZeroAddress(address _address) {
-        require(_address != address(0), "the address can not be zero address");
+        require(_address != address(0), "Can not be zero address");
         _;
     }
 
+    /**
+     * @notice There is a frozen time for unstaking
+     */
     modifier afterFrozenTime(address _userAddress) {
         require(
             block.timestamp >= userInfo[_userAddress].depositTime,
@@ -123,14 +123,14 @@ contract InsurancePool is InsurancePoolStore {
     // ---------------------------------------------------------------------------------------- //
 
     /**
-     * @notice view the collateral factor
+     * @notice View the collateral factor
      */
     function getCollateralFactor() public view returns (uint256) {
         return collateralFactor;
     }
 
     /**
-     * @notice view the pending premium amount in frontend
+     * @notice View the pending premium amount in frontend
      */
     function pendingPremium(address _userAddress)
         external
@@ -150,35 +150,19 @@ contract InsurancePool is InsurancePoolStore {
     }
 
     /**
-     * @notice View the pool's total available capacity
-     */
-    function getAvailableCapacity() public view returns (uint256) {
-        return availableCapacity;
-    }
-
-    /**
-     * @notice View the pool's total staking balance
-     */
-    function getTotalStakingBalance() public view returns (uint256) {
-        return totalStakingBalance;
-    }
-
-    /**
      * @notice Get the real balance: LPValue * LP_Num
      */
     function getRealBalance(address _userAddress)
         public
         view
-        returns (uint256)
+        returns (uint256 real_balance)
     {
         uint256 lp_num = DLPToken.balanceOf(_userAddress);
-        uint256 real_balance = doMul(lp_num, LPValue);
-        return real_balance;
+        real_balance = doMul(lp_num, LPValue);
     }
 
     /**
-     * @notice get a user's stake amount in the pool
-     * @param _userAddress: the user's address
+     * @notice Get a user's stake amount in the pool
      */
     function getStakeAmount(address _userAddress)
         public
@@ -189,41 +173,36 @@ contract InsurancePool is InsurancePoolStore {
     }
 
     /**
-     * @notice get the balance that the pool can unlock(maximum)
-     * @return the amount that the pool can unlock
+     * @notice Get the balance that the pool can unlock (maximum)
      */
     function getPoolUnlocked() public view returns (uint256) {
         return totalStakingBalance - lockedBalance;
     }
 
     /**
-     * @notice Get the balance that one user(LP) can unlock(maximum)
-     * @param _userAddress: User's address
-     * @return The amount that the user can unlock
+     * @notice Get the balance that one user(LP) can unlock
      */
     function getUnlockedFor(address _userAddress)
         public
         view
-        returns (uint256)
+        returns (uint256 _unlockedAmount)
     {
-        // uint256 user_balance = userInfo[_userAddress].assetBalance;
         uint256 user_balance = getRealBalance(_userAddress);
-        if (availableCapacity >= user_balance) {
-            return user_balance;
-        } else {
-            return availableCapacity;
-        }
+        _unlockedAmount = availableCapacity >= user_balance
+            ? user_balance
+            : availableCapacity;
     }
 
     /**
-     * @notice get the user's locked balance
-     * @param _userAddress: user's address
-     * @return The user's locked amount
+     * @notice Get the user's locked balance
      */
-    function getLockedfor(address _userAddress) public view returns (uint256) {
+    function getLockedfor(address _userAddress)
+        public
+        view
+        returns (uint256 _locked)
+    {
         uint256 user_balance = getRealBalance(_userAddress);
-        uint256 locked = (lockedRatio * user_balance) / (1e18);
-        return locked;
+        _locked = (lockedRatio * user_balance) / (1e18);
     }
 
     // ---------------------------------------------------------------------------------------- //
@@ -231,32 +210,19 @@ contract InsurancePool is InsurancePoolStore {
     // ---------------------------------------------------------------------------------------- //
 
     /**
-     * @notice Open the purchase incentive program
+     * @notice Set the purchase incentive amount
      */
-    function openPurchaseIncentive() public onlyOwner {
-        require(
-            purchaseIncentive == false,
-            "the purchase incentive has already turned on"
-        );
-        purchaseIncentive = true;
-        emit PurchaseIncentiveOn(block.timestamp);
-    }
-
-    /**
-     * @notice Close the purchase incentive program
-     */
-    function closePurchaseIncentive() public onlyOwner {
-        require(
-            purchaseIncentive == true,
-            "the purchase incentive has already turned off"
-        );
-        purchaseIncentive = false;
-        emit PurchaseIncentiveOff(block.timestamp);
+    function setPurchaseIncentive(uint256 _purchaseIncentive)
+        external
+        onlyOwner
+    {
+        purchaseIncentiveAmount = _purchaseIncentive;
+        emit PurchaseIncentiveChanged(block.timestamp, _purchaseIncentive);
     }
 
     /**
      * @notice Set a new punish time
-     * @param _newFrozenTime: New punish time, in timestamp(s)
+     * @param _newFrozenTime: New frozen time, in timestamp(s)
      */
     function setFrozenTime(uint256 _newFrozenTime) external onlyOwner {
         frozenTime = _newFrozenTime;
@@ -446,9 +412,7 @@ contract InsurancePool is InsurancePoolStore {
         // Remember approval
         USDT.safeTransferFrom(_userAddress, address(this), _premium);
 
-        if (purchaseIncentive == true) {
-            updatePoolReward();
-        }
+        updatePoolReward();
 
         emit BuyNewPolicy(_userAddress, _premium, _payoff);
         return true;
@@ -467,10 +431,10 @@ contract InsurancePool is InsurancePoolStore {
     ) public {
         updatePoolReward();
 
-        if (purchaseIncentive == true) {
-            uint256 incentive = 5e18;
-            DEGIS.mint(_userAddress, incentive);
-            emit SendPurchaseIncentive(_userAddress, incentive);
+        // Give purchase incentive when no payoff
+        if (purchaseIncentiveAmount > 0) {
+            DEGIS.mint(_userAddress, purchaseIncentiveAmount);
+            emit SendPurchaseIncentive(_userAddress, purchaseIncentiveAmount);
         }
 
         activePremiums -= _premium;

@@ -53,6 +53,7 @@ interface IPolicyFlow {
         uint256 _premium,
         uint256 _departureDate,
         uint256 _landingDate,
+        uint256 _deadline,
         bytes calldata signature
     ) external returns (uint256 policyId);
 
