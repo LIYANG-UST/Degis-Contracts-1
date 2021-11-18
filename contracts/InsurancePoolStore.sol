@@ -10,19 +10,22 @@ contract InsurancePoolStore {
 
     struct UserInfo {
         uint256 depositTime;
-        uint256 premiumDebt; // premium reward debt
-        uint256 assetBalance; // the amount of a user's staking in the pool
         uint256 pendingBalance; // the amount in the unstake queue
     }
     mapping(address => UserInfo) userInfo;
 
     // Basic information about the pool
-    struct PoolInfo {
-        uint256 totalLP; // total lp amount
-        uint256 accPremiumPerShare;
-        uint256 lastRewardCollected;
-    }
-    PoolInfo poolInfo;
+    // struct PoolInfo {
+    //     uint256 totalStakingBalance;
+    //     uint256 realStakingBalance;
+    //     uint256 lockedBalance;
+    //     uint256 availableCapacity;
+    //     uint256 activePremiums;
+    //     uint256 lockedRatio;
+    //     uint256 collateralFactor;
+    //     uint256[3] rewardDistribution;
+    // }
+    // PoolInfo public poolInfo;
 
     //  of every unstake request in the queue
     struct UnstakeRequest {
@@ -59,14 +62,8 @@ contract InsurancePoolStore {
     // Premiums have been paid but the policies haven't expired
     uint256 public activePremiums;
 
-    // Total income from premium
-    uint256 public rewardCollected;
-
     // [0]: LP, [1]: Lottery, [2]: Emergency
     uint256[3] public rewardDistribution;
-
-    // current pointer of the unstake request queue
-    // uint256 private unstakePointer;  // currently not used
 
     event Stake(address indexed userAddress, uint256 amount);
     event Unstake(address indexed userAddress, uint256 amount);
@@ -89,4 +86,9 @@ contract InsurancePoolStore {
     );
 
     event SendPurchaseIncentive(address _userAddress, uint256 _amount);
+    event SetFrozenTime(uint256 _newFrozenTime);
+    event PremiumDistributed(
+        uint256 _premiumToEmergency,
+        uint256 _premiumToLottery
+    );
 }

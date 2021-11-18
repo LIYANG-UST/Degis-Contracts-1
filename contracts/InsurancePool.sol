@@ -35,16 +35,14 @@ contract InsurancePool is InsurancePoolStore {
     // ---------------------------------------------------------------------------------------- //
 
     /**
-     * @notice constructor function
-     * @param _factor: Initial collateral factor
-     * @param _degis: Degis token address
-     * @param _emergencyPool: Emergency pool address
-     * @param _lptoken: LP token address
-     * @param _usdtAddress: address of USDC
+     * @notice Constructor function
+     * @param _degisToken Degis token address
+     * @param _emergencyPool Emergency pool address
+     * @param _lptoken LP token address
+     * @param _usdtAddress USDT address
      */
     constructor(
-        uint256 _factor,
-        address _degis,
+        address _degisToken,
         address _emergencyPool,
         address _lptoken,
         address _degisLottery,
@@ -52,28 +50,23 @@ contract InsurancePool is InsurancePoolStore {
     ) {
         owner = msg.sender;
 
-        collateralFactor = doDiv(_factor, 100);
+        collateralFactor = doDiv(100, 100);
 
         lockedRatio = 1e18; // 1e18 = 1
 
-        poolInfo = PoolInfo(
-            0, // TOTAL LP
-            0, // accPremiumPerShare
-            0 // lastRewardCollected
-        );
-
-        DEGIS = IDegisToken(_degis);
+        DEGIS = IDegisToken(_degisToken);
         USDT = IERC20(_usdtAddress);
         DLPToken = ILPToken(_lptoken);
         emergencyPool = IEmergencyPool(_emergencyPool);
         degisLottery = IDegisLottery(_degisLottery);
 
+        // Initial LP Value
         LPValue = 1e18;
 
-        // Initial distribution, 0: LP 1: Emergency 2: Lottery(Staking)
+        // Initial distribution, 0: LP 1: Lottery 2: Emergency
         rewardDistribution[0] = 50;
-        rewardDistribution[1] = 10;
-        rewardDistribution[2] = 40;
+        rewardDistribution[1] = 40;
+        rewardDistribution[2] = 10;
     }
 
     // ---------------------------------------------------------------------------------------- //
@@ -112,7 +105,7 @@ contract InsurancePool is InsurancePoolStore {
      */
     modifier afterFrozenTime(address _userAddress) {
         require(
-            block.timestamp >= userInfo[_userAddress].depositTime,
+            block.timestamp >= userInfo[_userAddress].depositTime + frozenTime,
             "Can not withdraw until the fronzen time"
         );
         _;
@@ -123,53 +116,17 @@ contract InsurancePool is InsurancePoolStore {
     // ---------------------------------------------------------------------------------------- //
 
     /**
-     * @notice View the collateral factor
-     */
-    function getCollateralFactor() public view returns (uint256) {
-        return collateralFactor;
-    }
-
-    /**
-     * @notice View the pending premium amount in frontend
-     */
-    function pendingPremium(address _userAddress)
-        external
-        view
-        returns (uint256 _pendingPremium)
-    {
-        UserInfo storage user = userInfo[_userAddress];
-
-        uint256 real_balance = getRealBalance(_userAddress);
-
-        uint256 accPremiumPerShare = poolInfo.accPremiumPerShare;
-
-        _pendingPremium =
-            (real_balance * accPremiumPerShare) /
-            (1e18) -
-            (user.premiumDebt);
-    }
-
-    /**
      * @notice Get the real balance: LPValue * LP_Num
+     * @param _userAddress User's address
+     * @return user_balance Real balance of this user
      */
-    function getRealBalance(address _userAddress)
+    function getUserBalance(address _userAddress)
         public
         view
-        returns (uint256 real_balance)
+        returns (uint256 user_balance)
     {
         uint256 lp_num = DLPToken.balanceOf(_userAddress);
-        real_balance = doMul(lp_num, LPValue);
-    }
-
-    /**
-     * @notice Get a user's stake amount in the pool
-     */
-    function getStakeAmount(address _userAddress)
-        public
-        view
-        returns (uint256)
-    {
-        return (userInfo[_userAddress].assetBalance);
+        user_balance = doMul(lp_num, LPValue);
     }
 
     /**
@@ -181,13 +138,15 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice Get the balance that one user(LP) can unlock
+     * @param _userAddress User's address
+     * @return _unlockedAmount Unlocked amount of the pool
      */
     function getUnlockedFor(address _userAddress)
         public
         view
         returns (uint256 _unlockedAmount)
     {
-        uint256 user_balance = getRealBalance(_userAddress);
+        uint256 user_balance = getUserBalance(_userAddress);
         _unlockedAmount = availableCapacity >= user_balance
             ? user_balance
             : availableCapacity;
@@ -195,13 +154,15 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice Get the user's locked balance
+     * @param _userAddress User's address
+     * @return _locked User's locked balance (as the locked ratio)
      */
     function getLockedfor(address _userAddress)
         public
         view
         returns (uint256 _locked)
     {
-        uint256 user_balance = getRealBalance(_userAddress);
+        uint256 user_balance = getUserBalance(_userAddress);
         _locked = (lockedRatio * user_balance) / (1e18);
     }
 
@@ -221,24 +182,29 @@ contract InsurancePool is InsurancePoolStore {
     }
 
     /**
-     * @notice Set a new punish time
+     * @notice Set a new frozen time
      * @param _newFrozenTime: New frozen time, in timestamp(s)
      */
     function setFrozenTime(uint256 _newFrozenTime) external onlyOwner {
         frozenTime = _newFrozenTime;
+        emit SetFrozenTime(_newFrozenTime);
     }
 
     /**
      * @notice Set the address of policyFlow
      */
-    function setPolicyFlow(address _policyFlowAddress) public onlyOwner {
+    function setPolicyFlow(address _policyFlowAddress)
+        public
+        onlyOwner
+        notZeroAddress(_policyFlowAddress)
+    {
         policyFlow = _policyFlowAddress;
         emit SetPolicyFlow(_policyFlowAddress);
     }
 
     /**
      * @notice Set the premium reward distribution
-     * @param _newDistribution: New distribution [LP, Emergency, Lottery]
+     * @param _newDistribution New distribution [LP, Lottery, Emergency]
      */
     function setIncomeDistribution(uint256[3] memory _newDistribution)
         public
@@ -261,7 +227,7 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice Transfer the ownership to a new owner
-     * @param _newOwner: New owner address
+     * @param _newOwner New owner address
      */
     function transferOwnerShip(address _newOwner)
         public
@@ -274,9 +240,10 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice Change the collateral factor
-     * @param _factor: The new collateral factor
+     * @param _factor The new collateral factor
      */
     function setCollateralFactor(uint256 _factor) public onlyOwner {
+        require(_factor > 0, "Collateral Factor should be larger than 0");
         collateralFactor = doDiv(_factor, 100);
         emit ChangeCollateralFactor(owner, _factor);
     }
@@ -286,22 +253,8 @@ contract InsurancePool is InsurancePoolStore {
     // ---------------------------------------------------------------------------------------- //
 
     /**
-     * @notice Update the pool's reward status for premium
-     *         When to update:
-     *              1. RewardCollected changes
-     *              2. TotalStakingBalance changes
-     */
-    function updatePoolReward() internal {
-        // Update the accPremiumPerShare status
-        uint256 premiumReward = rewardCollected - poolInfo.lastRewardCollected;
-        poolInfo.accPremiumPerShare +=
-            (premiumReward * (1e18)) /
-            (totalStakingBalance);
-    }
-
-    /**
      * @notice Check the conditions when receive new buying request
-     * @param _payoff: Payoff of the policy to be bought
+     * @param _payoff Payoff of the policy to be bought
      * @return Whether there is enough capacity in the pool for this payoff
      */
     function checkCapacity(uint256 _payoff) public view returns (bool) {
@@ -323,28 +276,13 @@ contract InsurancePool is InsurancePoolStore {
     {
         require(_amount > 0, "Can not deposit 0");
 
-        UserInfo storage user = userInfo[_userAddress];
-        updatePoolReward();
-
-        uint256 real_balance = getRealBalance(_userAddress);
-
         _deposit(_userAddress, _amount);
-
-        real_balance = getRealBalance(_userAddress);
-
-        user.premiumDebt =
-            (real_balance * (poolInfo.accPremiumPerShare)) /
-            (1e18);
-
-        user.depositTime = block.timestamp;
-
-        poolInfo.lastRewardCollected = rewardCollected;
 
         emit Stake(_userAddress, _amount);
     }
 
     /**
-     * @notice Unstake from the pool
+     * @notice Unstake from the pool (May fail if a claim happens before this operation)
      * @param _userAddress: User's address
      * @param _amount: The amount that the user want to unstake
      */
@@ -353,15 +291,16 @@ contract InsurancePool is InsurancePoolStore {
         notZeroAddress(_userAddress)
         afterFrozenTime(_userAddress)
     {
-        uint256 real_balance = getRealBalance(_userAddress);
+        uint256 user_balance = getUserBalance(_userAddress);
         require(
-            _amount <= real_balance && _amount > 0,
-            "not enough balance to be unlocked or your withdraw amount is 0"
+            _amount <= user_balance && _amount > 0,
+            "Not enough balance to be unlocked or your withdraw amount is 0"
         );
 
         uint256 unlocked = getPoolUnlocked();
         uint256 unstakeAmount = _amount;
 
+        // Will jump this part when the pool has enough liquidity
         if (_amount > unlocked) {
             uint256 remainingURequest = _amount - unlocked;
             unstakeRequests[_userAddress].push(
@@ -372,31 +311,43 @@ contract InsurancePool is InsurancePoolStore {
             userInfo[_userAddress].pendingBalance += remainingURequest;
         }
 
-        updatePoolReward();
-        UserInfo storage user = userInfo[_userAddress];
+        _withdraw(_userAddress, unstakeAmount);
+    }
 
-        if (real_balance > 0) {
-            uint256 pending_premium = ((real_balance *
-                poolInfo.accPremiumPerShare) / (1e18)) - (user.premiumDebt);
-            USDT.safeTransfer(_userAddress, pending_premium);
+    /**
+     * @notice Unstake the max amount of a user
+     * @param _userAddress User's address
+     */
+    function unstakeMax(address _userAddress)
+        external
+        notZeroAddress(_userAddress)
+        afterFrozenTime(_userAddress)
+    {
+        uint256 user_balance = getUserBalance(_userAddress);
+
+        uint256 unlocked = getPoolUnlocked();
+        uint256 unstakeAmount = user_balance;
+
+        // Will jump this part when the pool has enough liquidity
+        if (user_balance > unlocked) {
+            uint256 remainingURequest = user_balance - unlocked;
+            unstakeRequests[_userAddress].push(
+                UnstakeRequest(remainingURequest, 0, false)
+            );
+            unstakeQueue.push(_userAddress);
+            unstakeAmount = unlocked; // only withdraw the unlocked value
+            userInfo[_userAddress].pendingBalance += remainingURequest;
         }
 
         _withdraw(_userAddress, unstakeAmount);
-
-        real_balance = getRealBalance(_userAddress);
-
-        user.premiumDebt =
-            (real_balance * (poolInfo.accPremiumPerShare)) /
-            (1e18);
-
-        poolInfo.lastRewardCollected = rewardCollected;
     }
 
     /**
      * @notice Update the pool variables when buying policies
-     * @param _premium: the premium of the policy just sold
-     * @param _payoff: the payoff of the policy just sold
-     * @param _userAddress: the address of the buyer
+     * @dev Capacity check is done before calling this function
+     * @param _premium Policy's premium
+     * @param _payoff Policy's payoff (max payoff)
+     * @param _userAddress Address of the buyer
      */
     function updateWhenBuy(
         uint256 _premium,
@@ -412,96 +363,50 @@ contract InsurancePool is InsurancePoolStore {
         // Remember approval
         USDT.safeTransferFrom(_userAddress, address(this), _premium);
 
-        updatePoolReward();
-
         emit BuyNewPolicy(_userAddress, _premium, _payoff);
         return true;
     }
 
     /**
      * @notice Update the status when a policy expires
-     * @param _premium: Policy's premium
-     * @param _payoff: Policy's payoff
-     * @param _userAddress: User's address
+     * @param _premium Policy's premium
+     * @param _payoff Policy's payoff (max payoff)
+     * @param _userAddress User's address
      */
     function updateWhenExpire(
         uint256 _premium,
         uint256 _payoff,
         address _userAddress
     ) public {
-        updatePoolReward();
-
         // Give purchase incentive when no payoff
         if (purchaseIncentiveAmount > 0) {
             DEGIS.mint(_userAddress, purchaseIncentiveAmount);
             emit SendPurchaseIncentive(_userAddress, purchaseIncentiveAmount);
         }
 
+        // Update pool status
         activePremiums -= _premium;
         lockedBalance -= _payoff;
         availableCapacity += _payoff;
 
-        uint256 premiumToLP = (_premium * doDiv(rewardDistribution[0], 100)) /
-            1e18;
-        uint256 premiumToLottery = (_premium *
-            doDiv(rewardDistribution[1], 100)) / 1e18;
-        uint256 premiumToEmergency = (_premium *
-            doDiv(rewardDistribution[2], 100)) / 1e18;
+        // active premium changes, need to update the lp value
 
-        rewardCollected += premiumToLP;
-
-        // Transfer some reward to emergency pool and lottery pool
-        USDT.safeTransfer(address(emergencyPool), premiumToEmergency);
-        USDT.safeTransfer(address(degisLottery), premiumToLottery);
+        _distributePremium(_premium);
 
         uint256 remainingPayoff = _payoff;
-        uint256 pendingAmount;
+
         if (unstakeQueue.length > 0) {
-            for (uint256 i = unstakeQueue.length - 1; i >= 0; i -= 1) {
-                if (remainingPayoff >= 0) {
-                    address pendingUser = unstakeQueue[i];
-                    for (
-                        uint256 j = 0;
-                        j < unstakeRequests[pendingUser].length;
-                        j++
-                    ) {
-                        pendingAmount = unstakeRequests[pendingUser][j]
-                            .pendingAmount;
-                        if (remainingPayoff > pendingAmount) {
-                            remainingPayoff -= pendingAmount;
-
-                            for (
-                                uint256 k = 0;
-                                k < unstakeRequests[pendingUser].length - 1;
-                                k += 1
-                            ) {
-                                unstakeRequests[pendingUser][
-                                    k
-                                ] = unstakeRequests[pendingUser][k + 1];
-                            }
-                            unstakeRequests[pendingUser].pop();
-
-                            USDT.safeTransfer(pendingUser, pendingAmount);
-                        } else {
-                            unstakeRequests[pendingUser][j]
-                                .pendingAmount -= remainingPayoff;
-                            unstakeRequests[pendingUser][j]
-                                .fulfilledAmount += remainingPayoff;
-                            USDT.safeTransfer(pendingUser, remainingPayoff);
-
-                            remainingPayoff = 0;
-                            break;
-                        }
-                    }
-                } else break;
-            }
+            _dealUnstakeQueue(remainingPayoff);
         }
+
+        _updateLPValue();
     }
 
     /**
      * @notice Pay a claim
-     * @param _premium: The policy's premium
-     * @param _payoff: The policy's payoff
+     * @param _premium Premium of the policy
+     * @param _payoff Max payoff of the policy
+     * @param _realPayoff Real payoff of the policy
      * @param _userAddress: Address of the policy claimer
      */
     function payClaim(
@@ -518,50 +423,12 @@ contract InsurancePool is InsurancePoolStore {
         // Premiums to distribute
         activePremiums -= _premium;
 
-        uint256 premiumToLP = (_premium * doDiv(rewardDistribution[0], 100)) /
-            1e18;
-        uint256 premiumToLottery = (_premium *
-            doDiv(rewardDistribution[1], 100)) / 1e18;
-        uint256 premiumToEmergency = (_premium *
-            doDiv(rewardDistribution[2], 100)) / 1e18;
+        _distributePremium(_premium);
 
-        rewardCollected += premiumToLP;
-        updatePoolReward();
-
-        // transfer some reward to emergency pool and lottery pool
-        USDT.safeTransfer(address(emergencyPool), premiumToEmergency);
-        USDT.safeTransfer(address(degisLottery), premiumToLottery);
-
-        uint256 currentLotteryId = degisLottery.viewCurrentLotteryId();
-        degisLottery.injectFunds(currentLotteryId, premiumToLottery);
-
-        updateLPValue();
+        // Pay the claim
         USDT.safeTransfer(_userAddress, _realPayoff);
-    }
 
-    /**
-     * @notice harvest your premium reward
-     * @param _userAddress: the address of the premium claimer
-     */
-    function harvestPremium(address _userAddress)
-        public
-        notZeroAddress(_userAddress)
-    {
-        UserInfo storage user = userInfo[_userAddress];
-        updatePoolReward();
-
-        uint256 real_balance = getRealBalance(_userAddress);
-
-        if (real_balance > 0) {
-            uint256 pending = ((real_balance * poolInfo.accPremiumPerShare) /
-                (1e18)) - (user.premiumDebt);
-            USDT.safeTransfer(_userAddress, pending);
-        }
-        user.premiumDebt =
-            (real_balance * (poolInfo.accPremiumPerShare)) /
-            (1e18);
-
-        poolInfo.lastRewardCollected = rewardCollected;
+        _updateLPValue();
     }
 
     /**
@@ -604,12 +471,14 @@ contract InsurancePool is InsurancePoolStore {
         removeAllRequest(_userAddress);
         delete unstakeRequests[_userAddress];
 
-        userInfo[_userAddress].assetBalance = getRealBalance(_userAddress);
-
         uint256 remainingRequest = userInfo[_userAddress].pendingBalance;
         realStakingBalance += remainingRequest;
         userInfo[_userAddress].pendingBalance = 0;
     }
+
+    // ---------------------------------------------------------------------------------------- //
+    // ********************************** Internal Functions ********************************** //
+    // ---------------------------------------------------------------------------------------- //
 
     /**
      * @notice remove all unstake requests for a user
@@ -640,12 +509,9 @@ contract InsurancePool is InsurancePoolStore {
         unstakeQueue.pop();
     }
 
-    // ---------------------------------------------------------------------------------------- //
-    // ********************************** Internal Functions ********************************** //
-    // ---------------------------------------------------------------------------------------- //
-
     /**
      * @notice Finish the deposit process
+     * @dev LPValue will not change during deposit
      * @param _userAddress: Address of the user who deposits
      * @param _amount: Amount he deposits
      */
@@ -662,17 +528,15 @@ contract InsurancePool is InsurancePoolStore {
         // LP Token number need to be newly minted
         uint256 lp_num = doDiv(_amount, LPValue);
         DLPToken.mint(_userAddress, lp_num);
-        poolInfo.totalLP += lp_num;
 
-        updateLPValue();
-
-        userInfo[_userAddress].assetBalance = getRealBalance(_userAddress);
+        userInfo[_userAddress].depositTime = block.timestamp;
 
         emit Stake(_userAddress, _amount);
     }
 
     /**
      * @notice _withdraw: finish the withdraw action, only when meeting the conditions
+     * @dev LPValue will not change during withdraw
      * @param _userAddress: address of the user who withdraws
      * @param _amount: the amount he withdraws
      */
@@ -688,33 +552,85 @@ contract InsurancePool is InsurancePoolStore {
 
         uint256 lp_num = doDiv(_amount, LPValue);
         DLPToken.burn(_userAddress, lp_num);
-        poolInfo.totalLP -= lp_num;
-        updateLPValue();
-
-        userInfo[_userAddress].assetBalance = getRealBalance(_userAddress);
 
         emit Unstake(_userAddress, _amount);
     }
 
     /**
-     * @notice update the value of each lp token
+     * @notice Distribute the premium to lottery and emergency pool
+     * @param _premium Premium amount to be distributed
      */
-    function updateLPValue() internal {
-        uint256 totalLP = poolInfo.totalLP;
-        LPValue = doDiv(totalStakingBalance, totalLP);
+    function _distributePremium(uint256 _premium) internal {
+        uint256 premiumToLottery = (_premium *
+            doDiv(rewardDistribution[1], 100)) / 1e18;
+        uint256 premiumToEmergency = (_premium *
+            doDiv(rewardDistribution[2], 100)) / 1e18;
+
+        // Transfer some reward to emergency pool and lottery pool
+        USDT.safeTransfer(address(emergencyPool), premiumToEmergency);
+        USDT.safeTransfer(address(degisLottery), premiumToLottery);
+
+        // Record this injection
+        uint256 currentLotteryId = degisLottery.viewCurrentLotteryId();
+        degisLottery.injectFunds(currentLotteryId, premiumToLottery);
+
+        emit PremiumDistributed(premiumToEmergency, premiumToLottery);
     }
 
     /**
-     * @notice Safe degis transfer (check if the pool has enough DEGIS token)
-     * @param _to: User's address
-     * @param _amount: Amount to transfer
+     * @notice Update the value of each lp token
+     * @dev Normally it will update when claim or expire
      */
-    function safeDegisTransfer(address _to, uint256 _amount) internal {
-        uint256 DegisBalance = DEGIS.balanceOf(address(this));
-        if (_amount > DegisBalance) {
-            DEGIS.transfer(_to, DegisBalance);
-        } else {
-            DEGIS.transfer(_to, _amount);
+    function _updateLPValue() internal {
+        uint256 totalLP = IERC20(DLPToken).totalSupply();
+        uint256 totalBalance = IERC20(USDT).balanceOf(address(this));
+
+        LPValue = doDiv(totalBalance - activePremiums, totalLP);
+    }
+
+    /**
+     * @notice When some capacity unlocked, deal with the unstake queue
+     * @dev Normally we do not need this process
+     */
+    function _dealUnstakeQueue(uint256 remainingPayoff) internal {
+        uint256 pendingAmount;
+        for (uint256 i = unstakeQueue.length - 1; i >= 0; i -= 1) {
+            if (remainingPayoff >= 0) {
+                address pendingUser = unstakeQueue[i];
+                for (
+                    uint256 j = 0;
+                    j < unstakeRequests[pendingUser].length;
+                    j++
+                ) {
+                    pendingAmount = unstakeRequests[pendingUser][j]
+                        .pendingAmount;
+                    if (remainingPayoff > pendingAmount) {
+                        remainingPayoff -= pendingAmount;
+
+                        for (
+                            uint256 k = 0;
+                            k < unstakeRequests[pendingUser].length - 1;
+                            k += 1
+                        ) {
+                            unstakeRequests[pendingUser][k] = unstakeRequests[
+                                pendingUser
+                            ][k + 1];
+                        }
+                        unstakeRequests[pendingUser].pop();
+
+                        _withdraw(pendingUser, pendingAmount);
+                    } else {
+                        unstakeRequests[pendingUser][j]
+                            .pendingAmount -= remainingPayoff;
+                        unstakeRequests[pendingUser][j]
+                            .fulfilledAmount += remainingPayoff;
+                        _withdraw(pendingUser, remainingPayoff);
+
+                        remainingPayoff = 0;
+                        break;
+                    }
+                }
+            } else break;
         }
     }
 

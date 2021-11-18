@@ -18,11 +18,9 @@ interface IInsurancePool {
 
     function getAvailableCapacity() external view returns (uint256);
 
-    function getStakeAmount(address) external view returns (uint256);
+    function getUserBalance(address) external view returns (uint256);
 
     function getPoolInfo() external view returns (string memory);
-
-    function pendingDegis(address) external view returns (uint256);
 
     function checkCapacity(uint256) external view returns (bool);
 

@@ -278,8 +278,8 @@ contract FarmingPool is IFarmingPool {
 
     /**
      * @notice Safe degis transfer (check if the pool has enough DEGIS token)
-     * @param _to: User's address
-     * @param _amount: Amount to transfer
+     * @param _to User's address
+     * @param _amount Amount to transfer
      */
     function safeDegisTransfer(address _to, uint256 _amount) internal {
         uint256 DegisBalance = degis.balanceOf(address(this));
@@ -291,7 +291,7 @@ contract FarmingPool is IFarmingPool {
     }
 
     /**
-     * @notice Update all farming pools (except for those stopped)
+     * @notice Update all farming pools (except for those stopped ones)
      */
     function massUpdatePools() public {
         uint256 length = poolList.length;
@@ -303,11 +303,16 @@ contract FarmingPool is IFarmingPool {
 
     /**
      * @notice Check if a lptoken has been added into the pool before
+     * @param _lpTokenAddress LP token address
+     * @return _isInPool Wether this lp already in pool
      */
-    function _alreadyInPool(address _lpTokenAddress) internal returns (bool) {
+    function _alreadyInPool(address _lpTokenAddress)
+        internal
+        returns (bool _isInPool)
+    {
         uint256 poolId = poolMapping[_lpTokenAddress];
         // Never been added
-        if (poolId == 0) return false;
-        else return true;
+        if (poolId == 0) _isInPool = false;
+        else _isInPool = true;
     }
 }
