@@ -183,7 +183,7 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice Set a new frozen time
-     * @param _newFrozenTime: New frozen time, in timestamp(s)
+     * @param _newFrozenTime New frozen time, in timestamp(s)
      */
     function setFrozenTime(uint256 _newFrozenTime) external onlyOwner {
         frozenTime = _newFrozenTime;
@@ -267,8 +267,8 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice LPs stake assets into the pool
-     * @param _userAddress: User(LP)'s address
-     * @param _amount: The amount that the user want to stake
+     * @param _userAddress User(LP)'s address
+     * @param _amount The amount that the user want to stake
      */
     function stake(address _userAddress, uint256 _amount)
         external
@@ -283,8 +283,8 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice Unstake from the pool (May fail if a claim happens before this operation)
-     * @param _userAddress: User's address
-     * @param _amount: The amount that the user want to unstake
+     * @param _userAddress User's address
+     * @param _amount The amount that the user want to unstake
      */
     function unstake(address _userAddress, uint256 _amount)
         external
@@ -353,7 +353,7 @@ contract InsurancePool is InsurancePoolStore {
         uint256 _premium,
         uint256 _payoff,
         address _userAddress
-    ) external returns (bool) {
+    ) external onlyPolicyFlow returns (bool) {
         lockedBalance += _payoff;
         activePremiums += _premium;
         availableCapacity -= _payoff;
@@ -377,7 +377,7 @@ contract InsurancePool is InsurancePoolStore {
         uint256 _premium,
         uint256 _payoff,
         address _userAddress
-    ) public {
+    ) external onlyPolicyFlow {
         // Give purchase incentive when no payoff
         if (purchaseIncentiveAmount > 0) {
             DEGIS.mint(_userAddress, purchaseIncentiveAmount);
@@ -414,7 +414,7 @@ contract InsurancePool is InsurancePoolStore {
         uint256 _payoff,
         uint256 _realPayoff,
         address _userAddress
-    ) public notZeroAddress(_userAddress) {
+    ) public onlyPolicyFlow notZeroAddress(_userAddress) {
         // Unlock the max payoff volume
         lockedBalance -= _payoff;
         // Count the real payoff volume
@@ -433,12 +433,17 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice revert the last unstake request for a user
-     * @param _userAddress: user's address
+     * @param _userAddress user's address
      */
     function revertUnstakeRequest(address _userAddress)
         public
         notZeroAddress(_userAddress)
     {
+        require(
+            msg.sender == _userAddress || msg.sender == owner,
+            "Only the owner or the user himself can revert"
+        );
+
         UnstakeRequest[] storage userRequests = unstakeRequests[_userAddress];
         require(
             userRequests.length > 0,
@@ -457,12 +462,17 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice revert all unstake requests for a user
-     * @param _userAddress: user's address
+     * @param _userAddress user's address
      */
     function revertAllUnstakeRequest(address _userAddress)
         public
         notZeroAddress(_userAddress)
     {
+        require(
+            msg.sender == _userAddress || msg.sender == owner,
+            "Only the owner or the user himself can revert"
+        );
+
         UnstakeRequest[] storage userRequests = unstakeRequests[_userAddress];
         require(
             userRequests.length > 0,
@@ -482,7 +492,7 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice remove all unstake requests for a user
-     * @param _userAddress: user's address
+     * @param _userAddress user's address
      */
     function removeAllRequest(address _userAddress) internal {
         for (uint256 i = 0; i < unstakeRequests[_userAddress].length; i += 1) {
@@ -512,8 +522,8 @@ contract InsurancePool is InsurancePoolStore {
     /**
      * @notice Finish the deposit process
      * @dev LPValue will not change during deposit
-     * @param _userAddress: Address of the user who deposits
-     * @param _amount: Amount he deposits
+     * @param _userAddress Address of the user who deposits
+     * @param _amount Amount he deposits
      */
     function _deposit(address _userAddress, uint256 _amount) internal {
         // Update the pool's status
@@ -537,8 +547,8 @@ contract InsurancePool is InsurancePoolStore {
     /**
      * @notice _withdraw: finish the withdraw action, only when meeting the conditions
      * @dev LPValue will not change during withdraw
-     * @param _userAddress: address of the user who withdraws
-     * @param _amount: the amount he withdraws
+     * @param _userAddress address of the user who withdraws
+     * @param _amount the amount he withdraws
      */
     function _withdraw(address _userAddress, uint256 _amount) internal {
         // Update the pool's status
@@ -591,6 +601,7 @@ contract InsurancePool is InsurancePoolStore {
     /**
      * @notice When some capacity unlocked, deal with the unstake queue
      * @dev Normally we do not need this process
+     * @param remainingPayoff Remaining payoff amount
      */
     function _dealUnstakeQueue(uint256 remainingPayoff) internal {
         uint256 pendingAmount;
