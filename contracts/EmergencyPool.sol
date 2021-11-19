@@ -19,8 +19,8 @@ contract EmergencyPool is Ownable, IEmergencyPool {
 
     /**
      * @notice Manually stake into the pool
-     * @param _userAddress: User's address
-     * @param _amount: The amount that the user want to stake
+     * @param _userAddress User's address
+     * @param _amount The amount that the user want to stake
      */
     function deposit(address _userAddress, uint256 _amount) external {
         require(_amount > 0, "Please deposit some funds");
@@ -31,8 +31,8 @@ contract EmergencyPool is Ownable, IEmergencyPool {
 
     /**
      * @notice EmergencyWithdraw: unstake the asset (only by the owner)
-     * @param _userAddress: User's address
-     * @param _amount: The amount that the user want to unstake
+     * @param _userAddress User's address
+     * @param _amount The amount that the user want to unstake
      */
     // the ownership need to be transferred to another contract in the future
     function emergencyWithdraw(address _userAddress, uint256 _amount)
@@ -48,8 +48,8 @@ contract EmergencyPool is Ownable, IEmergencyPool {
 
     /**
      * @notice finish the deposit process
-     * @param _userAddress: address of the user who deposits
-     * @param _amount: the amount he deposits
+     * @param _userAddress address of the user who deposits
+     * @param _amount the amount he deposits
      */
     function _deposit(address _userAddress, uint256 _amount) internal {
         USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _amount);
