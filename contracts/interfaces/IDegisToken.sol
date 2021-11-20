@@ -2,36 +2,58 @@
 
 pragma solidity 0.8.9;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol";
 
 /**
  * @dev Based on the interface of the ERC20 standard.
  * Just add some boring functions.
  */
-interface IDegisToken is IERC20 {
+interface IDegisToken is IERC20Permit {
     // ---------------------------------------------------------------------------------------- //
     // *************************************** Functions ************************************** //
     // ---------------------------------------------------------------------------------------- //
 
-    function passMinterRole(address) external returns (bool);
+    function cap() external pure returns (uint256);
 
-    function passOwnership(address) external returns (bool);
+    function addMinter(address) external;
 
-    function passBurnerRole(address) external returns (bool);
+    function removeMinter(address) external;
 
-    function releaseOwnership() external returns (bool);
+    function addBurner(address) external;
+
+    function removeBurner(address) external;
+
+    function passOwnership(address) external;
+
+    function releaseOwnership() external;
 
     function mint(address, uint256) external;
 
     function burn(address, uint256) external;
 
+    function closeOwnerMint() external;
+
+    // function permit(
+    //     address owner,
+    //     address spender,
+    //     uint256 value,
+    //     uint256 deadline,
+    //     uint8 v,
+    //     bytes32 r,
+    //     bytes32 s
+    // ) external;
+
     // ---------------------------------------------------------------------------------------- //
     // **************************************** Events **************************************** //
     // ---------------------------------------------------------------------------------------- //
 
-    event MinterChanged(address indexed _oldMinter, address indexed _newMinter);
+    event MinterAdded(address _newMinter);
+    event MinterRemoved(address _oldMinter);
+
+    event BurnerAdded(address _newBurner);
+    event BurnerRemoved(address _oldBurner);
+
     event OwnerChanged(address indexed _oldOwner, address indexed _newOwner);
-    event BurnerChanged(address indexed _oldBurner, address indexed _newBurner);
     event ReleaseOwnership(address indexed _oldOwner);
 
     event MintByOwner(address _account, uint256 _amount);
