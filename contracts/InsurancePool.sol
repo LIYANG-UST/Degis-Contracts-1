@@ -50,7 +50,7 @@ contract InsurancePool is InsurancePoolStore {
     ) {
         owner = msg.sender;
 
-        collateralFactor = doDiv(100, 100);
+        collateralFactor = _doDiv(100, 100);
 
         lockedRatio = 1e18; // 1e18 = 1
 
@@ -118,15 +118,15 @@ contract InsurancePool is InsurancePoolStore {
     /**
      * @notice Get the real balance: LPValue * LP_Num
      * @param _userAddress User's address
-     * @return user_balance Real balance of this user
+     * @return userBalance Real balance of this user
      */
     function getUserBalance(address _userAddress)
         public
         view
-        returns (uint256 user_balance)
+        returns (uint256 userBalance)
     {
         uint256 lp_num = DLPToken.balanceOf(_userAddress);
-        user_balance = doMul(lp_num, LPValue);
+        userBalance = _doMul(lp_num, LPValue);
     }
 
     /**
@@ -146,9 +146,9 @@ contract InsurancePool is InsurancePoolStore {
         view
         returns (uint256 _unlockedAmount)
     {
-        uint256 user_balance = getUserBalance(_userAddress);
-        _unlockedAmount = availableCapacity >= user_balance
-            ? user_balance
+        uint256 userBalance = getUserBalance(_userAddress);
+        _unlockedAmount = availableCapacity >= userBalance
+            ? userBalance
             : availableCapacity;
     }
 
@@ -162,8 +162,8 @@ contract InsurancePool is InsurancePoolStore {
         view
         returns (uint256 _locked)
     {
-        uint256 user_balance = getUserBalance(_userAddress);
-        _locked = (lockedRatio * user_balance) / (1e18);
+        uint256 userBalance = getUserBalance(_userAddress);
+        _locked = (lockedRatio * userBalance) / (1e18);
     }
 
     // ---------------------------------------------------------------------------------------- //
@@ -244,7 +244,7 @@ contract InsurancePool is InsurancePoolStore {
      */
     function setCollateralFactor(uint256 _factor) public onlyOwner {
         require(_factor > 0, "Collateral Factor should be larger than 0");
-        collateralFactor = doDiv(_factor, 100);
+        collateralFactor = _doDiv(_factor, 100);
         emit ChangeCollateralFactor(owner, _factor);
     }
 
@@ -274,7 +274,10 @@ contract InsurancePool is InsurancePoolStore {
         external
         notZeroAddress(_userAddress)
     {
-        require(_amount > 0, "Can not deposit 0");
+        require(
+            IERC20(USDT).balanceOf(_userAddress) >= _amount && _amount > 0,
+            "You do not have enough USD or input 0 amount"
+        );
 
         _deposit(_userAddress, _amount);
 
@@ -291,9 +294,9 @@ contract InsurancePool is InsurancePoolStore {
         notZeroAddress(_userAddress)
         afterFrozenTime(_userAddress)
     {
-        uint256 user_balance = getUserBalance(_userAddress);
+        uint256 userBalance = getUserBalance(_userAddress);
         require(
-            _amount <= user_balance && _amount > 0,
+            _amount <= userBalance && _amount > 0,
             "Not enough balance to be unlocked or your withdraw amount is 0"
         );
 
@@ -323,14 +326,14 @@ contract InsurancePool is InsurancePoolStore {
         notZeroAddress(_userAddress)
         afterFrozenTime(_userAddress)
     {
-        uint256 user_balance = getUserBalance(_userAddress);
+        uint256 userBalance = getUserBalance(_userAddress);
 
         uint256 unlocked = getPoolUnlocked();
-        uint256 unstakeAmount = user_balance;
+        uint256 unstakeAmount = userBalance;
 
         // Will jump this part when the pool has enough liquidity
-        if (user_balance > unlocked) {
-            uint256 remainingURequest = user_balance - unlocked;
+        if (userBalance > unlocked) {
+            uint256 remainingURequest = userBalance - unlocked;
             unstakeRequests[_userAddress].push(
                 UnstakeRequest(remainingURequest, 0, false)
             );
@@ -353,18 +356,19 @@ contract InsurancePool is InsurancePoolStore {
         uint256 _premium,
         uint256 _payoff,
         address _userAddress
-    ) external onlyPolicyFlow returns (bool) {
+    ) external onlyPolicyFlow {
+        // Update pool status
         lockedBalance += _payoff;
         activePremiums += _premium;
         availableCapacity -= _payoff;
 
-        lockedRatio = doDiv(lockedBalance, totalStakingBalance);
+        // Update lockedRatio
+        lockedRatio = _doDiv(lockedBalance, totalStakingBalance);
 
         // Remember approval
         USDT.safeTransferFrom(_userAddress, address(this), _premium);
 
         emit BuyNewPolicy(_userAddress, _premium, _payoff);
-        return true;
     }
 
     /**
@@ -389,12 +393,11 @@ contract InsurancePool is InsurancePoolStore {
         lockedBalance -= _payoff;
         availableCapacity += _payoff;
 
-        // active premium changes, need to update the lp value
-
+        // Distribute the premium
         _distributePremium(_premium);
 
+        // If there is any unstake request in the queue
         uint256 remainingPayoff = _payoff;
-
         if (unstakeQueue.length > 0) {
             _dealUnstakeQueue(remainingPayoff);
         }
@@ -414,15 +417,14 @@ contract InsurancePool is InsurancePoolStore {
         uint256 _payoff,
         uint256 _realPayoff,
         address _userAddress
-    ) public onlyPolicyFlow notZeroAddress(_userAddress) {
-        // Unlock the max payoff volume
+    ) external onlyPolicyFlow notZeroAddress(_userAddress) {
+        // Update the pool status
         lockedBalance -= _payoff;
-        // Count the real payoff volume
         totalStakingBalance -= _realPayoff;
         realStakingBalance -= _realPayoff;
-        // Premiums to distribute
         activePremiums -= _premium;
 
+        // Distribute the premium
         _distributePremium(_premium);
 
         // Pay the claim
@@ -457,7 +459,7 @@ contract InsurancePool is InsurancePoolStore {
         realStakingBalance += remainingRequest;
         userInfo[_userAddress].pendingBalance -= remainingRequest;
 
-        removeOneRequest(_userAddress);
+        _removeOneRequest(_userAddress);
     }
 
     /**
@@ -478,7 +480,7 @@ contract InsurancePool is InsurancePoolStore {
             userRequests.length > 0,
             "this user has no pending unstake request"
         );
-        removeAllRequest(_userAddress);
+        _removeAllRequest(_userAddress);
         delete unstakeRequests[_userAddress];
 
         uint256 remainingRequest = userInfo[_userAddress].pendingBalance;
@@ -491,20 +493,20 @@ contract InsurancePool is InsurancePoolStore {
     // ---------------------------------------------------------------------------------------- //
 
     /**
-     * @notice remove all unstake requests for a user
-     * @param _userAddress user's address
+     * @notice Remove all unstake requests for a user
+     * @param _userAddress User's address
      */
-    function removeAllRequest(address _userAddress) internal {
+    function _removeAllRequest(address _userAddress) internal {
         for (uint256 i = 0; i < unstakeRequests[_userAddress].length; i += 1) {
-            removeOneRequest(_userAddress);
+            _removeOneRequest(_userAddress);
         }
     }
 
     /**
-     * @notice remove one(the latest) unstake requests for a user
-     * @param _userAddress: user's address
+     * @notice Remove one(the latest) unstake requests for a user
+     * @param _userAddress User's address
      */
-    function removeOneRequest(address _userAddress) internal {
+    function _removeOneRequest(address _userAddress) internal {
         uint256 index = unstakeQueue.length - 1;
 
         while (index >= 0) {
@@ -526,17 +528,18 @@ contract InsurancePool is InsurancePoolStore {
      * @param _amount Amount he deposits
      */
     function _deposit(address _userAddress, uint256 _amount) internal {
+        uint256 amountWithFactor = (_amount * collateralFactor) / 1e18;
         // Update the pool's status
         totalStakingBalance += _amount;
         realStakingBalance += _amount;
-        availableCapacity += _amount;
+        availableCapacity += amountWithFactor;
 
-        lockedRatio = doDiv(lockedBalance, totalStakingBalance);
+        lockedRatio = _doDiv(lockedBalance, totalStakingBalance);
 
         USDT.safeTransferFrom(_userAddress, address(this), _amount);
 
         // LP Token number need to be newly minted
-        uint256 lp_num = doDiv(_amount, LPValue);
+        uint256 lp_num = _doDiv(_amount, LPValue);
         DLPToken.mint(_userAddress, lp_num);
 
         userInfo[_userAddress].depositTime = block.timestamp;
@@ -551,16 +554,17 @@ contract InsurancePool is InsurancePoolStore {
      * @param _amount the amount he withdraws
      */
     function _withdraw(address _userAddress, uint256 _amount) internal {
+        uint256 amountWithFactor = (_amount * collateralFactor) / 1e18;
         // Update the pool's status
         totalStakingBalance -= _amount;
         realStakingBalance -= _amount;
-        availableCapacity -= _amount;
+        availableCapacity -= amountWithFactor;
 
-        lockedRatio = doDiv(lockedBalance, totalStakingBalance);
+        lockedRatio = _doDiv(lockedBalance, totalStakingBalance);
 
         USDT.safeTransfer(_userAddress, _amount);
 
-        uint256 lp_num = doDiv(_amount, LPValue);
+        uint256 lp_num = _doDiv(_amount, LPValue);
         DLPToken.burn(_userAddress, lp_num);
 
         emit Unstake(_userAddress, _amount);
@@ -572,9 +576,9 @@ contract InsurancePool is InsurancePoolStore {
      */
     function _distributePremium(uint256 _premium) internal {
         uint256 premiumToLottery = (_premium *
-            doDiv(rewardDistribution[1], 100)) / 1e18;
+            _doDiv(rewardDistribution[1], 100)) / 1e18;
         uint256 premiumToEmergency = (_premium *
-            doDiv(rewardDistribution[2], 100)) / 1e18;
+            _doDiv(rewardDistribution[2], 100)) / 1e18;
 
         // Transfer some reward to emergency pool and lottery pool
         USDT.safeTransfer(address(emergencyPool), premiumToEmergency);
@@ -595,7 +599,7 @@ contract InsurancePool is InsurancePoolStore {
         uint256 totalLP = IERC20(DLPToken).totalSupply();
         uint256 totalBalance = IERC20(USDT).balanceOf(address(this));
 
-        LPValue = doDiv(totalBalance - activePremiums, totalLP);
+        LPValue = _doDiv(totalBalance - activePremiums, totalLP);
     }
 
     /**
@@ -649,7 +653,7 @@ contract InsurancePool is InsurancePoolStore {
      * @notice Do division via PRBMath
      * @dev    E.g. doDiv(1, 1) = 1e18  doDiv(1, 10) = 1e17 doDiv(10, 1) = 1e19
      */
-    function doDiv(uint256 x, uint256 y) internal pure returns (uint256) {
+    function _doDiv(uint256 x, uint256 y) internal pure returns (uint256) {
         return PRBMathUD60x18.div(x, y);
     }
 
@@ -657,7 +661,7 @@ contract InsurancePool is InsurancePoolStore {
      * @notice Do multiplication via PRBMath
      * @dev    E.g. doMul(1, 1) = 1e18  doMul(2, 5) = 1e19
      */
-    function doMul(uint256 x, uint256 y) internal pure returns (uint256) {
+    function _doMul(uint256 x, uint256 y) internal pure returns (uint256) {
         return PRBMathUD60x18.mul(x, y);
     }
 }

@@ -28,7 +28,7 @@ interface IInsurancePool {
         uint256,
         uint256,
         address
-    ) external returns (bool);
+    ) external;
 
     function updateWhenExpire(
         uint256,
