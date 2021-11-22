@@ -3,6 +3,13 @@ pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
+/**
+ * @title LPToken
+ * @notice This is the LP Token for flight delay insurance pool.
+ *         When users deposit funds into the pool, they will get the LP Tokens.
+ *
+ */
+
 contract LPToken is ERC20 {
     address public minter;
     address public owner;
