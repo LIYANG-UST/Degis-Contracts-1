@@ -1,13 +1,23 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.5;
+pragma solidity 0.8.9;
 
 interface IFlightOracle {
     function newOracleRequest(
-        address,
-        bytes32,
-        uint256,
-        string memory,
-        string memory,
-        uint256
+        uint256 _payment,
+        string memory _url,
+        string memory _path,
+        int256 times
     ) external returns (bytes32);
+
+    // Set a new url
+    function setURL(string memory _url) external;
+
+    // Set the oracle address
+    function setOracleAddress(address _newOracle) external;
+
+    // Set a new job id
+    function setJobId(bytes32 _newJobId) external;
+
+    // Set a new policy flow
+    function setPolicyFlow(address _policyFlow) external;
 }

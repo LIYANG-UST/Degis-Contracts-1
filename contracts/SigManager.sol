@@ -4,6 +4,12 @@ pragma solidity 0.8.9;
 import "./interfaces/ISigManager.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 
+/**
+ * @title Signature Manager
+ * @notice Signature is used when submitting new applications.
+ *         The premium should be decided by the pricing model and be signed by a private key.
+ *         Other submission will not be accepted.
+ */
 contract SigManager is ISigManager {
     using ECDSA for bytes32;
 
@@ -40,7 +46,7 @@ contract SigManager is ISigManager {
 
     /**
      * @notice Add a signer into valid signer list
-     * @param _newSigner: The new signer address
+     * @param _newSigner The new signer address
      */
     function addSigner(address _newSigner) external notZeroAddress onlyOwner {
         require(
@@ -53,7 +59,7 @@ contract SigManager is ISigManager {
 
     /**
      * @notice Remove a signer from the valid signer list
-     * @param _oldSigner: The old signer address to be removed
+     * @param _oldSigner The old signer address to be removed
      */
     function removeSigner(address _oldSigner)
         external
@@ -70,9 +76,8 @@ contract SigManager is ISigManager {
 
     /**
      * @notice Check whether the address is a valid signer
-     * @param _address: The input address
-     * @return True: is a valid signer, can be used to sign the transaction
-     *         False: not a valid signer
+     * @param _address The input address
+     * @return isValidSigner Whether this address is
      */
     function isValidSigner(address _address) public view returns (bool) {
         return _isValidSigner[_address];
@@ -80,11 +85,11 @@ contract SigManager is ISigManager {
 
     /**
      * @notice Check signature when buying a new policy (avoid arbitrary premium amount)
-     * @param signature: 65 byte array: [[v (1)], [r (32)], [s (32)]]
-     * @param _flightNumber: Flight number
-     * @param _address: User address
-     * @param _premium: Policy premium
-     * @param _deadline: Deadline of a policy
+     * @param signature 65 byte array: [[v (1)], [r (32)], [s (32)]]
+     * @param _flightNumber Flight number
+     * @param _address User address
+     * @param _premium Policy premium
+     * @param _deadline Deadline of a policy
      */
     function checkSignature(
         bytes calldata signature,

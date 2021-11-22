@@ -48,7 +48,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow, ToStrings {
     uint256 public MIN_TIME_BEFORE_DEPARTURE = 24 hours;
 
     // Parameters about the claim curve
-    uint256 public MAX_PAYOFF = 180;
+    uint256 public MAX_PAYOFF = 180 ether;
     uint256 public DELAY_THRESHOLD_MIN = 30;
     uint256 public DELAY_THRESHOLD_MAX = 240;
 

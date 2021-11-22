@@ -7,6 +7,7 @@ const GetRandomness = artifacts.require("GetRandomness");
 const PolicyFlow = artifacts.require("PolicyFlow");
 const PolicyToken = artifacts.require("PolicyToken"); // only deploy once
 const EmergencyPool = artifacts.require("EmergencyPool");
+const FlightOracle = artifacts.require("FlightOracle");
 
 // ---------------------------- Const Addresses -------------------------------- //
 const degis_rinkeby = "0xeFfedF1D042122493Ba9C96E0a1208295554Cb41";
@@ -26,8 +27,7 @@ const RINKEBY_LINKTOKEN = "0x01be23585060835e02b77ef475b0cc51aa1e0709";
 const RINKEBY_KEYHASH =
   "0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311";
 
-// ---------------------------- Parameters -------------------------------- //
-const DEGIS_PER_BLOCK = web3.utils.toBN(10 ** 18); // 10 degis per block
+const fs = require("fs");
 
 module.exports = async function (deployer, network) {
   if (network.startsWith("rinkeby")) {
@@ -36,26 +36,41 @@ module.exports = async function (deployer, network) {
     await deployer.deploy(EmergencyPool, usdc_rinkeby);
     await deployer.deploy(
       InsurancePool,
-      100,
-      degis_rinkeby,
+      DegisToken.address,
       EmergencyPool.address,
       LPToken.address,
       lottery_rinkeby,
-      usdc_rinkeby,
-      DEGIS_PER_BLOCK
+      MockUSD.address
     );
+
+    await deployer.deploy(SigManager);
+    await deployer.deploy(FlightOracle);
+
     await deployer.deploy(
       PolicyFlow,
       InsurancePool.address,
       policy_token2,
-      RINKEBY_CHAINLINK_ORACLE
+      FlightOracle.address,
+      RINKEBY_CHAINLINK_ORACLE,
+      SigManager
     );
-    await deployer.deploy(
-      GetRandomness,
-      RINKEBY_VRF_COORDINATOR,
-      RINKEBY_LINKTOKEN,
-      RINKEBY_KEYHASH
-    );
+
+    const addressList = {
+      LPToken: LPToken.address,
+      EmergencyPool: EmergencyPool.address,
+      InsurancePool: InsurancePool.address,
+      PolicyFlow: PolicyFlow.address,
+      SigManager: SigManager.address,
+      FlightOracle: FlightOracle.address,
+    };
+
+    const data = JSON.stringify(addressList);
+
+    fs.writeFile("address.json", data, (err) => {
+      if (err) {
+        throw err;
+      }
+    });
     // await deployer.deploy(PolicyToken, '0x8336b18796CAb07a4897Ea0F133f214F4B5D7378')
   } else if (network.startsWith("development")) {
     await deployer.deploy(MockUSD);
@@ -64,12 +79,11 @@ module.exports = async function (deployer, network) {
     await deployer.deploy(EmergencyPool, MockUSD.address);
     await deployer.deploy(
       InsurancePool,
-      100,
       DegisToken.address,
       EmergencyPool.address,
       LPToken.address,
-      MockUSD.address,
-      DEGIS_PER_BLOCK
+      lottery_rinkeby,
+      MockUSD.address
     );
   }
 };

@@ -3,6 +3,13 @@ pragma solidity 0.8.9;
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 import "./interfaces/IPolicyFlow.sol";
 
+/**
+ * @title  Flight Oracle
+ * @notice This is the flight oracle contract.
+ *         Called by policyFlow contract and send the request to chainlink node.
+ *         After receiving the result, call the policyFlow contract to do the settlement.
+ * @dev    Remember to set the url, oracleAddress and jobId
+ */
 contract FlightOracle is ChainlinkClient {
     using Chainlink for Chainlink.Request;
 
@@ -10,7 +17,6 @@ contract FlightOracle is ChainlinkClient {
 
     IPolicyFlow policyFlow;
 
-    uint256 fee;
     string private FLIGHT_STATUS_URL = "http://39.101.132.228:8000/live/";
     address private oracleAddress;
     bytes32 private jobId;
@@ -19,15 +25,37 @@ contract FlightOracle is ChainlinkClient {
         policyFlow = IPolicyFlow(_policyFlow);
     }
 
+    // Only the owner can call some functions
     modifier onlyOwner() {
         require(msg.sender == owner, "Only the owner can call this function");
         _;
     }
 
+    // Only the policyFlow can call some functions
+    modifier onlyPolicyFlow() {
+        require(
+            msg.sender == address(policyFlow),
+            "Only the policyflow can call this function"
+        );
+        _;
+    }
+
+    // Set a new url
     function setURL(string memory _url) external onlyOwner {
         FLIGHT_STATUS_URL = _url;
     }
 
+    // Set the oracle address
+    function setOracleAddress(address _newOracle) external onlyOwner {
+        oracleAddress = _newOracle;
+    }
+
+    // Set a new job id
+    function setJobId(bytes32 _newJobId) external onlyOwner {
+        jobId = _newJobId;
+    }
+
+    // Set a new policy flow
     function setPolicyFlow(address _policyFlow) external onlyOwner {
         policyFlow = IPolicyFlow(_policyFlow);
     }
@@ -36,29 +64,26 @@ contract FlightOracle is ChainlinkClient {
      * @notice Creates a request to the specified Oracle contract address
      * @dev This function ignores the stored Oracle contract address and
      *      will instead send the request to the address specified
-     * @param _oracle The Oracle contract address to send the request to
-     * @param _jobId The bytes32 JobID to be executed
+     * @param _payment Payment to the oracle
      * @param _url The URL to fetch data from
      * @param _path The dot-delimited path to parse of the response
      * @param _times The number to multiply the result by
      */
     function newOracleRequest(
-        address _oracle,
-        bytes32 _jobId,
         uint256 _payment,
         string memory _url,
         string memory _path,
         int256 _times
-    ) public returns (bytes32) {
+    ) public onlyPolicyFlow returns (bytes32) {
         Chainlink.Request memory req = buildChainlinkRequest(
-            _jobId,
+            jobId,
             address(this),
             this.fulfill.selector
         );
         req.add("url", _url);
         req.add("path", _path);
         req.addInt("times", _times);
-        return sendChainlinkRequestTo(_oracle, req, _payment);
+        return sendChainlinkRequestTo(oracleAddress, req, _payment);
     }
 
     /**
