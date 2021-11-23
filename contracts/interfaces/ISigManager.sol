@@ -17,5 +17,5 @@ interface ISigManager {
         address _address,
         uint256 _premium,
         uint256 _deadline
-    ) external;
+    ) external view;
 }

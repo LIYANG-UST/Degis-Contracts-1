@@ -1,38 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.9;
+import "./IPolicyTypes.sol";
 
 /**
  * @title  IPolicyFlow
  * @notice This is the interface of PolicyFlow contract.
  *         Contains some type definations, event list and function declarations.
  */
-interface IPolicyFlow {
-    /// @notice Enum type of the policy status
-    enum PolicyStatus {
-        INI,
-        SOLD,
-        DECLINED,
-        EXPIRED,
-        CLAIMED
-    }
-
-    /// @notice Policy information struct
-    struct PolicyInfo {
-        uint256 productId; // 0: flight delay 1,2,3: future products
-        address buyerAddress; // buyer's address
-        uint256 policyId; // total order: 0 - N (unique for each policy)(used to link)
-        string flightNumber;
-        uint256 premium;
-        uint256 payoff;
-        uint256 purchaseDate; // Unix timestamp
-        uint256 departureDate; // Unix timestamp
-        uint256 landingDate;
-        PolicyStatus status; // INI, SOLD, DECLINED, EXPIRED, CLAIMED
-        // Oracle Related
-        bool isUsed; // Whether has call the oracle
-        uint256 delayResult; // [400:cancelled] [0: on time] [0 ~ 240: delay time] [404: initial]
-    }
-
+interface IPolicyFlow is IPolicyTypes {
     /// @notice Event list
     event newPolicyApplication(uint256 _policyID, address indexed _userAddress);
     event PolicySold(uint256 _policyID, address indexed _userAddress);
@@ -47,7 +22,6 @@ interface IPolicyFlow {
 
     /// @notice Apply for a new policy
     function newApplication(
-        address _userAddress,
         uint256 _productId,
         string memory _flightNumber,
         uint256 _premium,
@@ -67,23 +41,16 @@ interface IPolicyFlow {
     ) external;
 
     /// @notice View a user's policy info
-    function viewPolicy(address) external view returns (string memory);
+    function viewUserPolicy(address)
+        external
+        view
+        returns (PolicyInfo[] memory);
 
     /// @notice Get the policy info by its policyId
     function getPolicyInfoById(uint256)
         external
         view
-        returns (
-            string memory,
-            uint256,
-            address,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256
-        );
+        returns (PolicyInfo memory);
 
     /// @notice Update when the policy token is transferred to another owner
     function policyOwnerTransfer(

@@ -1,27 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "./libraries/ToStrings.sol";
 import "./interfaces/IPolicyFlow.sol";
+import "./interfaces/IPolicyToken.sol";
 
-contract PolicyToken is ERC721Enumerable, Ownable {
+contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
     using Strings for uint256;
-
-    struct PolicyTokenURIParam {
-        uint256 productId;
-        string flightNumber;
-        uint256 policyId;
-        address owner;
-        uint256 premium;
-        uint256 payoff;
-        uint256 purchaseDate;
-        uint256 departureDate;
-        uint256 landingDate;
-        uint256 status;
-    }
 
     IPolicyFlow policyFlow;
 
@@ -57,7 +44,7 @@ contract PolicyToken is ERC721Enumerable, Ownable {
     function tokenURI(uint256 _tokenId)
         public
         view
-        override(ERC721)
+        override(ERC721, IPolicyToken)
         returns (string memory)
     {
         require(_tokenId < _nextId, "error, tokenId too large!");
@@ -112,43 +99,28 @@ contract PolicyToken is ERC721Enumerable, Ownable {
      * @notice Get the tokenURI, the metadata is from policyFlow contract
      * @param _tokenId: Token Id of the policy token
      */
-    function getTokenURI(uint256 _tokenId)
-        internal
-        view
-        returns (string memory)
-    {
-        (
-            string memory _flightNumber,
-            uint256 _productId,
-            address _owner,
-            uint256 _premium,
-            uint256 _payoff,
-            uint256 _purchaseDate,
-            uint256 _departureDate,
-            uint256 _landingDate,
-            uint256 _status
-        ) = policyFlow.getPolicyInfoById(_tokenId);
+    function getTokenURI(uint256 _tokenId) public view returns (string memory) {
+        PolicyInfo memory info = policyFlow.getPolicyInfoById(_tokenId);
 
         return
             constructTokenURI(
                 PolicyTokenURIParam(
-                    _productId,
-                    _flightNumber,
-                    _tokenId,
-                    _owner,
-                    _premium,
-                    _payoff,
-                    _purchaseDate,
-                    _departureDate,
-                    _landingDate,
-                    _status
+                    info.productId,
+                    info.flightNumber,
+                    info.policyId,
+                    info.buyerAddress,
+                    info.premium,
+                    info.payoff,
+                    info.purchaseDate,
+                    info.departureDate,
+                    info.landingDate,
+                    uint256(info.status)
                 )
             );
     }
 
     /**
      * @notice Construct the metadata of a specific policy token
-
      */
 
     function constructTokenURI(PolicyTokenURIParam memory _params)
