@@ -18,9 +18,8 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
     // ************************************* Constructor ************************************** //
     // ---------------------------------------------------------------------------------------- //
 
-    constructor(address _policyFlow) ERC721("DegisPolicyToken", "DEGISPT") {
+    constructor() ERC721("DegisPolicyToken", "DEGISPT") {
         _nextId = 1;
-        policyFlow = IPolicyFlow(_policyFlow);
     }
 
     // ---------------------------------------------------------------------------------------- //
@@ -38,7 +37,7 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
 
     /**
      * @notice Get the tokenURI of a policy
-     * @param _tokenId: Token Id of the policy token
+     * @param _tokenId Token Id of the policy token
      * @return The tokenURI in string form
      */
     function tokenURI(uint256 _tokenId)

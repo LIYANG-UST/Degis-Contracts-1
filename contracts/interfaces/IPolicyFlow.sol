@@ -61,4 +61,8 @@ interface IPolicyFlow is IPolicyTypes {
 
     /// @notice Do the final settlement when receiving the oracle result
     function finalSettlement(bytes32 _requestId, uint256 _result) external;
+
+    function getChainlinkToken() external view returns (address);
+
+    function getUserPolicyCount(address) external view returns (uint256);
 }

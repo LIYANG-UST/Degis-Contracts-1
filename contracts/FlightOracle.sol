@@ -23,6 +23,8 @@ contract FlightOracle is ChainlinkClient {
 
     constructor(address _policyFlow) {
         policyFlow = IPolicyFlow(_policyFlow);
+
+        setPublicChainlinkToken();
     }
 
     // Only the owner can call some functions

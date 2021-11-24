@@ -18,6 +18,8 @@ interface IFarmingPool {
 
     function pendingDegis(uint256, address) external returns (uint256);
 
+    function setStartBlock(uint256 _startBlock) external;
+
     function add(
         address _lpToken,
         uint256 _poolId,

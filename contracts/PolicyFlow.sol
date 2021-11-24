@@ -8,6 +8,7 @@ import "./interfaces/IPolicyToken.sol";
 import "./interfaces/IPolicyFlow.sol";
 import "./interfaces/IFlightOracle.sol";
 import "./interfaces/ISigManager.sol";
+import "./interfaces/IBuyerToken.sol";
 
 /**
  * @title  PolicyFlow
@@ -30,8 +31,6 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
     uint256 public oracleResponse; // A test variable to store the oracle address
     uint256 fee;
     string private FLIGHT_STATUS_URL = "http://39.101.132.228:8000/live/";
-    address private oracleAddress;
-    bytes32 private jobId;
 
     mapping(bytes32 => uint256) requestList; // requestId => policyId
     mapping(uint256 => uint256) resultList; // policyId => delay result
@@ -42,6 +41,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
     IInsurancePool insurancePool;
     IPolicyToken policyToken;
     IFlightOracle flightOracle;
+    IBuyerToken buyerToken;
 
     // Minimum time before departure for applying
     uint256 public MIN_TIME_BEFORE_DEPARTURE = 24 hours;
@@ -63,9 +63,8 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
     constructor(
         address _insurancePool,
         address _policyToken,
-        address _flightOracle,
-        address _oracleAddress,
-        address _sigManager
+        address _sigManager,
+        address _buyerToken
     ) {
         // Set owner address
         owner = msg.sender;
@@ -73,28 +72,16 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
         // Other contracts' interfaces
         insurancePool = IInsurancePool(_insurancePool);
         policyToken = IPolicyToken(_policyToken);
-        flightOracle = IFlightOracle(_flightOracle);
+        buyerToken = IBuyerToken(_buyerToken);
+        sigManager = ISigManager(_sigManager);
 
         // Set oracle parameter
-        oracleAddress = _oracleAddress;
-        jobId = "cef74a7ff7ea4194ab97f00c89abef6b";
-        setPublicChainlinkToken();
         fee = 1 * 10**18; // 1 LINK
-
-        sigManager = ISigManager(_sigManager);
     }
 
     // ----------------------------------------------------------------------------------- //
     // ************************************ Modifiers ************************************ //
     // ----------------------------------------------------------------------------------- //
-
-    modifier onlyOracle() {
-        require(
-            msg.sender == oracleAddress,
-            "only the oracle can call this function"
-        );
-        _;
-    }
 
     modifier onlyOwner() {
         require(msg.sender == owner, "only the owner can call this function");
@@ -145,7 +132,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice Get the policyInfo from its count/order
-     * @param _policyId: Total count/order of the policy = NFT tokenId
+     * @param _policyId Total count/order of the policy = NFT tokenId
      * @return policy A struct of information about this policy
      */
     function getPolicyInfoById(uint256 _policyId)
@@ -158,7 +145,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice Get a user's total policy amount
-     * @param _userAddress: User's address
+     * @param _userAddress User's address
      * @return policyAmount User's policy amount
      */
     function getUserPolicyCount(address _userAddress)
@@ -171,7 +158,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice Get the policy buyer by policyId
-     * @param _policyId: Unique policy Id (uint256)
+     * @param _policyId Unique policy Id (uint256)
      * @return buyerAddress The buyer of this policy
      */
     function findPolicyBuyerById(uint256 _policyId)
@@ -187,16 +174,8 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
     // ----------------------------------------------------------------------------------- //
 
     /**
-     * @notice Change the job Id
-     * @param _jobId: New oracle job Id
-     */
-    function changeJobId(bytes32 _jobId) external onlyOwner {
-        jobId = _jobId;
-    }
-
-    /**
      * @notice Change the oracle fee
-     * @param _fee: New oracle fee
+     * @param _fee New oracle fee
      */
     function changeFee(uint256 _fee) external onlyOwner {
         fee = _fee;
@@ -204,7 +183,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice Change the max payoff
-     * @param _newMaxPayoff: New maxpayoff amount
+     * @param _newMaxPayoff New maxpayoff amount
      */
     function changeMaxPayoff(uint256 _newMaxPayoff) external onlyOwner {
         MAX_PAYOFF = _newMaxPayoff;
@@ -212,7 +191,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice How long before departure when users can not buy new policies
-     * @param _newMinTime: New time set
+     * @param _newMinTime New time set
      */
     function changeMinTimeBeforeDeparture(uint256 _newMinTime)
         external
@@ -223,16 +202,16 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice Change the oracle address
-     * @param _oracleAddress: New oracle address
+     * @param _oracleAddress New oracle address
      */
-    function changeOrcaleAddress(address _oracleAddress) external onlyOwner {
-        oracleAddress = _oracleAddress;
+    function setFlightOracle(address _oracleAddress) external onlyOwner {
+        flightOracle = IFlightOracle(_oracleAddress);
     }
 
     /**
      * @notice Set the new delay threshold used for calculating payoff
-     * @param _thresholdMin: New minimum threshold
-     * @param _thresholdMax: New maximum threshold
+     * @param _thresholdMin New minimum threshold
+     * @param _thresholdMax New maximum threshold
      */
     function setDelayThreshold(uint256 _thresholdMin, uint256 _thresholdMax)
         external
@@ -249,12 +228,12 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice Buy a new policy application
-     * @param _productId: ID of the purchased product (0: flightdelay; 1,2,3...: others) (different products)
-     * @param _flightNumber: Flight number string (e.g. "AQ1299")
-     * @param _premium: Premium of this policy (decimals: 18)
-     * @param _departureDate: Departure date of this flight (unix timestamp in s, not ms!)
-     * @param _landingDate: Landing date of this flight (uinx timestamp in s, not ms!)
-     * @param signature: Use web3.eth.sign(hash(data), privatekey) to generate the signature
+     * @param _productId ID of the purchased product (0: flightdelay; 1,2,3...: others) (different products)
+     * @param _flightNumber Flight number string (e.g. "AQ1299")
+     * @param _premium Premium of this policy (decimals: 18)
+     * @param _departureDate Departure date of this flight (unix timestamp in s, not ms!)
+     * @param _landingDate Landing date of this flight (uinx timestamp in s, not ms!)
+     * @param signature Use web3.eth.sign(hash(data), privatekey) to generate the signature
      */
     function newApplication(
         uint256 _productId,
@@ -309,10 +288,14 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
         // May be accepted or rejected
         policyCheck(_premium, MAX_PAYOFF, msg.sender, currentPolicyId);
 
+        buyerToken.mint(msg.sender, _premium);
+
         // Store the policy's total order with userAddress
         userPolicy[msg.sender].push(Total_Policies);
+
         // Update the user's policy amount
         userPolicyCount[msg.sender] += 1;
+
         // Update total policies
         Total_Policies += 1;
 
@@ -374,9 +357,9 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
     /**
      * @notice Update information when a policy token's ownership has been transferred
      * @dev This function is called by the ERC721 contract of PolicyToken
-     * @param _tokenId: Token Id of the policy token
-     * @param _oldOwner: The initial owner
-     * @param _newOwner: The new owner
+     * @param _tokenId Token Id of the policy token
+     * @param _oldOwner The initial owner
+     * @param _newOwner The new owner
      */
     function policyOwnerTransfer(
         uint256 _tokenId,
