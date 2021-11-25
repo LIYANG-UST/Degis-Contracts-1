@@ -13,4 +13,8 @@ contracts/Loot.sol
 
 .VSCodeCounter/
 
+yarn.lock
+
+package-lock.json
+
 
