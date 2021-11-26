@@ -248,6 +248,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
             block.timestamp <= _deadline,
             "Expired deadline, please resubmit a transaction"
         );
+
         require(
             _productId == PRODUCT_ID,
             "You are calling the wrong product contract"
@@ -285,9 +286,10 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
         );
 
         // Check the policy with the insurance pool status
-        // May be accepted or rejected
+        // May be accepted or rejected, if accepted then update the status of insurancePool
         policyCheck(_premium, MAX_PAYOFF, msg.sender, currentPolicyId);
 
+        // Give buyer tokens depending on the usd value they spent
         buyerToken.mint(msg.sender, _premium);
 
         // Store the policy's total order with userAddress
@@ -318,20 +320,27 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
         string memory _path,
         bool _forceUpdate
     ) public {
+        // Can not get the result before landing date
         require(
             block.timestamp >= policyList[_policyId].landingDate,
             "Can only claim a policy after its landing"
         );
+
+        // Check if the policy has been settled
         require(
             (!policyList[_policyId].isUsed) ||
                 (_forceUpdate && (msg.sender == owner)),
             "The policy status has already been settled, or you need to make a force update"
         );
+
+        // Check if the flight number is correct
         require(
             keccak256(abi.encodePacked(_flightNumber)) ==
                 keccak256(abi.encodePacked(policyList[_policyId].flightNumber)),
             "Wrong flight number provided"
         );
+
+        // Check if the departure date is correct
         require(
             keccak256(abi.encodePacked(_date)) ==
                 keccak256(
@@ -340,6 +349,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
             "Wrong departure date provided"
         );
 
+        // Construct the url for oracle
         string memory _url = string(
             abi.encodePacked(
                 FLIGHT_STATUS_URL,
@@ -349,7 +359,10 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
             )
         );
 
+        // Start a new oracle request
         bytes32 requestId = flightOracle.newOracleRequest(fee, _url, _path, 1);
+
+        // Record this request
         requestList[requestId] = _policyId;
         policyList[_policyId].isUsed = true;
     }
@@ -366,17 +379,20 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
         address _oldOwner,
         address _newOwner
     ) external override {
+        // Check the call is from policy token contract
         require(
             msg.sender == address(policyToken),
             "only called from the policy token contract"
         );
 
+        // Check the previous owner record
         uint256 policyId = _tokenId;
         require(
             _oldOwner == policyList[policyId].buyerAddress,
-            "the previous owner is wrong"
+            "The previous owner is wrong"
         );
 
+        // Update the new buyer address
         policyList[policyId].buyerAddress = _newOwner;
         emit PolicyOwnerTransfer(_tokenId, _newOwner);
     }
@@ -387,15 +403,17 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice Do the final settlement, called by FlightOracle contract
-     * @param _requestId: Chainlink request id
-     * @param _result: Delay result (minutes) given by oracle
+     * @param _requestId Chainlink request id
+     * @param _result Delay result (minutes) given by oracle
      */
     function finalSettlement(bytes32 _requestId, uint256 _result) public {
+        // Check if the call is from flight oracle
         require(
             msg.sender == address(flightOracle),
             "this function should be called by FlightOracle contract"
         );
 
+        // Store the oracle response
         oracleResponse = _result;
 
         uint256 policyId = requestList[_requestId];
@@ -428,9 +446,9 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice check the policy and then determine whether we can afford it
-     * @param _payoff: the payoff of the policy sold
-     * @param _userAddress: user's address
-     * @param _policyId: the unique policy ID
+     * @param _payoff the payoff of the policy sold
+     * @param _userAddress user's address
+     * @param _policyId the unique policy ID
      */
     function policyCheck(
         uint256 _premium,
@@ -456,10 +474,10 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice update the policy when it is expired
-     * @param _premium: the premium of the policy sold
-     * @param _payoff: the payoff of the policy sold
-     * @param _userAddress: user's address
-     * @param _policyId: the unique policy ID
+     * @param _premium the premium of the policy sold
+     * @param _payoff the payoff of the policy sold
+     * @param _userAddress user's address
+     * @param _policyId the unique policy ID
      */
     function policyExpired(
         uint256 _premium,
@@ -474,10 +492,10 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     /**
      * @notice Update the policy when it is claimed
-     * @param _premium: Premium of the policy sold
-     * @param _payoff: Payoff of the policy sold
-     * @param _userAddress: User's address
-     * @param _policyId: The unique policy ID
+     * @param _premium Premium of the policy sold
+     * @param _payoff Payoff of the policy sold
+     * @param _userAddress User's address
+     * @param _policyId The unique policy ID
      */
     function policyClaimed(
         uint256 _premium,
