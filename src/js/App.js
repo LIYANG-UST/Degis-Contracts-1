@@ -1,8 +1,6 @@
-const usdcadd_rinkeby = "0x6e95Fc19611cebD936B22Fd1A15D53d98bb31dAF";
-// const pool_address = '0xDcB6B0D63b4A6011dF2239A070fdcf65c67f366A';
-const policy_token_address = "0xF29Ca363D07d77c1BD37986791472D7429b3a693";
-const degis_token = "0xeFfedF1D042122493Ba9C96E0a1208295554Cb41";
-// const lp_token = "0xC37Be5d653685DA882BcbD47EF10D9760DC0D7ee";
+const usdcadd_rinkeby = "0x4379a39c8Bd46D651eC4bdA46C32E2725b217860";
+const policy_token_address = "0x89882E723eD78afa76A2e0A331766B74E7ecEdfA";
+const degis_token = "0x77E4DC6B670B618dfE00fea8AD36d445a48D0181";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -118,13 +116,19 @@ App = {
       App.contracts.LinkTokenInterface.setProvider(App.web3Provider);
       console.log("Init LinkToken");
     });
+    $.getJSON("FarmingPool.json", function (data) {
+      var FarmingPoolArtifact = data;
+      App.contracts.FarmingPool = TruffleContract(FarmingPoolArtifact);
+      App.contracts.FarmingPool.setProvider(App.web3Provider);
+      console.log("Init LinkToken");
+    });
 
     //调用事件
     return App.bindEvents();
   },
 
   bindEvents: function () {
-    $(document).on("click", ".btn-mint", App.mint);
+    $(document).on("click", ".btn-passminter", App.passMinterRole);
     $(document).on("click", ".btn-mintnft", App.mintNFT);
     $(document).on("click", ".btn-getpoolinfo", App.getPoolInfo);
     $(document).on("click", ".btn-stake", App.deposit);
@@ -144,6 +148,7 @@ App = {
     $(document).on("click", ".btn-harvestPremium", App.harvestPremium);
   },
 
+  // 更新pool address的全局变量 之后使用
   updatePoolAddress: async function () {
     console.log("\n-------------Update pool -----------------\n");
     const pool = await App.contracts.InsurancePool.deployed();
@@ -154,9 +159,7 @@ App = {
   },
 
   //合约的mint方法
-  mint: async function () {
-    //deployed得到合约的实例，通过then的方式回调拿到实例
-
+  passMinterRole: async function () {
     console.log("\n-------------Pass the Minter Role---------------\n");
 
     const dt = await App.contracts.DegisToken.at(degis_token);
@@ -167,8 +170,9 @@ App = {
 
     let mintaddress = document.getElementById("minter").value;
 
+    // 默认把minter转移给insurancePool
     if (mintaddress == "") {
-      const minter_d = await dt.passMinterRole(App.pool_address, {
+      const minter_d = await dt.addMinter(App.pool_address, {
         from: App.account,
       });
       console.log("Degis Minter Address:", minter_d.logs[0].args[1]);
@@ -177,7 +181,7 @@ App = {
       });
       console.log("LPToken Minter Address:", minter_l.logs[0].args[1]);
     } else {
-      const minter_d = await dt.passMinterRole(mintaddress, {
+      const minter_d = await dt.addMinter(mintaddress, {
         from: App.account,
       });
       console.log("Degis Minter Address:", minter_d.logs[0].args[1]);

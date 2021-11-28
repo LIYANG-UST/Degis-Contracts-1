@@ -14,19 +14,6 @@ contract InsurancePoolStore {
     }
     mapping(address => UserInfo) userInfo;
 
-    // Basic information about the pool
-    // struct PoolInfo {
-    //     uint256 totalStakingBalance;
-    //     uint256 realStakingBalance;
-    //     uint256 lockedBalance;
-    //     uint256 availableCapacity;
-    //     uint256 activePremiums;
-    //     uint256 lockedRatio;
-    //     uint256 collateralFactor;
-    //     uint256[3] rewardDistribution;
-    // }
-    // PoolInfo public poolInfo;
-
     //  of every unstake request in the queue
     struct UnstakeRequest {
         uint256 pendingAmount;

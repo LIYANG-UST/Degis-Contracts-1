@@ -166,6 +166,19 @@ contract InsurancePool is InsurancePoolStore {
         _locked = (lockedRatio * userBalance) / (1e18);
     }
 
+    /**
+     * @notice Check the conditions when receive new buying request
+     * @param _payoff Payoff of the policy to be bought
+     * @return Whether there is enough capacity in the pool for this payoff
+     */
+    function checkCapacity(uint256 _payoff) public view returns (bool) {
+        if (availableCapacity >= _payoff) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     // ---------------------------------------------------------------------------------------- //
     // ************************************ Owner Functions *********************************** //
     // ---------------------------------------------------------------------------------------- //
@@ -253,21 +266,8 @@ contract InsurancePool is InsurancePoolStore {
     // ---------------------------------------------------------------------------------------- //
 
     /**
-     * @notice Check the conditions when receive new buying request
-     * @param _payoff Payoff of the policy to be bought
-     * @return Whether there is enough capacity in the pool for this payoff
-     */
-    function checkCapacity(uint256 _payoff) public view returns (bool) {
-        if (availableCapacity >= _payoff) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    /**
      * @notice LPs stake assets into the pool
-     * @param _userAddress User(LP)'s address
+     * @param _userAddress Address of the user, can be another user's address
      * @param _amount The amount that the user want to stake
      */
     function stake(address _userAddress, uint256 _amount)
@@ -275,7 +275,7 @@ contract InsurancePool is InsurancePoolStore {
         notZeroAddress(_userAddress)
     {
         require(
-            IERC20(USDT).balanceOf(_userAddress) >= _amount && _amount > 0,
+            IERC20(USDT).balanceOf(msg.sender) >= _amount && _amount > 0,
             "You do not have enough USD or input 0 amount"
         );
 
@@ -286,14 +286,16 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice Unstake from the pool (May fail if a claim happens before this operation)
-     * @param _userAddress User's address
+     * @dev Only unstake by yourself
      * @param _amount The amount that the user want to unstake
      */
-    function unstake(address _userAddress, uint256 _amount)
+    function unstake(uint256 _amount)
         external
-        notZeroAddress(_userAddress)
-        afterFrozenTime(_userAddress)
+        notZeroAddress(msg.sender)
+        afterFrozenTime(msg.sender)
     {
+        address _userAddress = msg.sender;
+
         uint256 userBalance = getUserBalance(_userAddress);
         require(
             _amount <= userBalance && _amount > 0,
@@ -319,13 +321,14 @@ contract InsurancePool is InsurancePoolStore {
 
     /**
      * @notice Unstake the max amount of a user
-     * @param _userAddress User's address
      */
-    function unstakeMax(address _userAddress)
+    function unstakeMax()
         external
-        notZeroAddress(_userAddress)
-        afterFrozenTime(_userAddress)
+        notZeroAddress(msg.sender)
+        afterFrozenTime(msg.sender)
     {
+        address _userAddress = msg.sender;
+
         uint256 userBalance = getUserBalance(_userAddress);
 
         uint256 unlocked = getPoolUnlocked();
@@ -529,6 +532,7 @@ contract InsurancePool is InsurancePoolStore {
      */
     function _deposit(address _userAddress, uint256 _amount) internal {
         uint256 amountWithFactor = (_amount * collateralFactor) / 1e18;
+
         // Update the pool's status
         totalStakingBalance += _amount;
         realStakingBalance += _amount;
@@ -536,7 +540,8 @@ contract InsurancePool is InsurancePoolStore {
 
         lockedRatio = _doDiv(lockedBalance, totalStakingBalance);
 
-        USDT.safeTransferFrom(_userAddress, address(this), _amount);
+        // msg.sender always pays
+        USDT.safeTransferFrom(msg.sender, address(this), _amount);
 
         // LP Token number need to be newly minted
         uint256 lp_num = _doDiv(_amount, LPValue);

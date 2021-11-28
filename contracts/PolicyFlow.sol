@@ -287,7 +287,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
         // Check the policy with the insurance pool status
         // May be accepted or rejected, if accepted then update the status of insurancePool
-        policyCheck(_premium, MAX_PAYOFF, msg.sender, currentPolicyId);
+        _policyCheck(_premium, MAX_PAYOFF, msg.sender, currentPolicyId);
 
         // Give buyer tokens depending on the usd value they spent
         buyerToken.mint(msg.sender, _premium);
@@ -429,10 +429,10 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
             policyExpired(premium, MAX_PAYOFF, buyerAddress, policyId);
         } else if (_result <= DELAY_THRESHOLD_MAX) {
             uint256 real_payoff = calcPayoff(_result);
-            policyClaimed(premium, real_payoff, buyerAddress, policyId);
+            _policyClaimed(premium, real_payoff, buyerAddress, policyId);
         } else if (_result == 400) {
             // 400: cancelled
-            policyClaimed(premium, MAX_PAYOFF, buyerAddress, policyId);
+            _policyClaimed(premium, MAX_PAYOFF, buyerAddress, policyId);
         } else {
             policyExpired(premium, MAX_PAYOFF, buyerAddress, policyId);
         }
@@ -450,7 +450,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
      * @param _userAddress user's address
      * @param _policyId the unique policy ID
      */
-    function policyCheck(
+    function _policyCheck(
         uint256 _premium,
         uint256 _payoff,
         address _userAddress,
@@ -497,7 +497,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
      * @param _userAddress User's address
      * @param _policyId The unique policy ID
      */
-    function policyClaimed(
+    function _policyClaimed(
         uint256 _premium,
         uint256 _payoff,
         address _userAddress,
