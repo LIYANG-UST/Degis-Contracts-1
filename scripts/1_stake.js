@@ -43,13 +43,13 @@ module.exports = async (callback) => {
       from: account,
     });
 
-    await pool.unstake(account, web3.utils.toWei("100", "ether"), {
-      from: account,
-    });
+    // await pool.unstake(account, web3.utils.toWei("100", "ether"), {
+    //   from: account,
+    // });
 
     // 查询自己的余额
     const balance = await pool.getUserBalance(account);
-    console.log("user balance:", balance);
+    console.log("user balance:", parseInt(balance) / 1e18);
 
     callback(true);
   } catch (err) {

@@ -18,13 +18,7 @@ contract EmergencyPool is IEmergencyPool {
 
     string public name = "Degis Emergency Pool";
 
-    // This is the address of USDC (maybe usd-anything).
-    IERC20 public USDC_TOKEN;
-
-    event OwnershipTransferred(address _newOwner);
-
-    constructor(address _usdcAddress) {
-        USDC_TOKEN = IERC20(_usdcAddress);
+    constructor() {
         owner = msg.sender;
     }
 
@@ -50,11 +44,20 @@ contract EmergencyPool is IEmergencyPool {
      * @param _userAddress User's address
      * @param _amount The amount that the user want to stake
      */
-    function deposit(address _userAddress, uint256 _amount) external {
+    function deposit(
+        address _usdAddress,
+        address _userAddress,
+        uint256 _amount
+    ) external {
         require(_amount > 0, "Please deposit some funds");
 
-        _deposit(_userAddress, _amount);
-        emit Deposit(_userAddress, _amount);
+        IERC20(_usdAddress).safeTransferFrom(
+            _userAddress,
+            address(this),
+            _amount
+        );
+
+        emit Deposit(_usdAddress, _userAddress, _amount);
     }
 
     /**
@@ -63,32 +66,15 @@ contract EmergencyPool is IEmergencyPool {
      * @param _userAddress User's address
      * @param _amount The amount that the user want to unstake
      */
-    function emergencyWithdraw(address _userAddress, uint256 _amount)
-        external
-        onlyOwner
-    {
-        uint256 balance = IERC20(USDC_TOKEN).balanceOf(address(this));
+    function emergencyWithdraw(
+        address _usdAddress,
+        address _userAddress,
+        uint256 _amount
+    ) external onlyOwner {
+        uint256 balance = IERC20(_usdAddress).balanceOf(address(this));
         require(_amount <= balance, "not enough balance to be unlocked");
 
-        _withdraw(_userAddress, _amount);
-        emit Withdraw(_userAddress, _amount);
-    }
-
-    /**
-     * @notice Finish the deposit process
-     * @param _userAddress Address of the user who deposits
-     * @param _amount The amount he deposits
-     */
-    function _deposit(address _userAddress, uint256 _amount) internal {
-        USDC_TOKEN.safeTransferFrom(_userAddress, address(this), _amount);
-    }
-
-    /**
-     * @notice Finish the withdraw action, only when meeting the conditions
-     * @param _userAddress Address of the user who withdraws
-     * @param _amount The amount he withdraws
-     */
-    function _withdraw(address _userAddress, uint256 _amount) internal {
-        USDC_TOKEN.safeTransfer(_userAddress, _amount);
+        IERC20(_usdAddress).safeTransfer(_userAddress, _amount);
+        emit Withdraw(_usdAddress, _userAddress, _amount);
     }
 }

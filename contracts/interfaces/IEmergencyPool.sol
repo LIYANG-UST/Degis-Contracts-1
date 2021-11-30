@@ -3,12 +3,30 @@
 pragma solidity 0.8.9;
 
 interface IEmergencyPool {
-    event Deposit(address indexed userAddress, uint256 amount);
-    event Withdraw(address indexed userAddress, uint256 amount);
+    event Deposit(
+        address usdAddress,
+        address indexed userAddress,
+        uint256 amount
+    );
+    event Withdraw(
+        address usdAddress,
+        address indexed userAddress,
+        uint256 amount
+    );
 
-    function name() external returns (string memory);
+    event OwnershipTransferred(address _newOwner);
 
-    function deposit(address, uint256) external;
+    function name() external view returns (string memory);
 
-    function emergencyWithdraw(address, uint256) external;
+    function deposit(
+        address usdAddress,
+        address userAddress,
+        uint256 amount
+    ) external;
+
+    function emergencyWithdraw(
+        address usdAddress,
+        address userAddress,
+        uint256 amount
+    ) external;
 }

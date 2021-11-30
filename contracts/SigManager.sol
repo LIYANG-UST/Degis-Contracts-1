@@ -5,10 +5,11 @@ import "./interfaces/ISigManager.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 
 /**
- * @title Signature Manager
+ * @title  Signature Manager
  * @notice Signature is used when submitting new applications.
  *         The premium should be decided by the pricing model and be signed by a private key.
  *         Other submission will not be accepted.
+ *         Please keep the signer key safe.
  */
 contract SigManager is ISigManager {
     using ECDSA for bytes32;
@@ -99,7 +100,7 @@ contract SigManager is ISigManager {
         uint256 _deadline
     ) external view {
         bytes32 hashData = keccak256(
-            abi.encode(
+            abi.encodePacked(
                 _SUBMIT_CLAIM_TYPEHASH,
                 _flightNumber,
                 _address,

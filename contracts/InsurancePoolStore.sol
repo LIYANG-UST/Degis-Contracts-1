@@ -3,6 +3,7 @@ pragma solidity 0.8.9;
 
 contract InsurancePoolStore {
     address public policyFlow;
+    address public emergencyPool;
 
     uint256 public purchaseIncentiveAmount;
 
@@ -51,31 +52,4 @@ contract InsurancePoolStore {
 
     // [0]: LP, [1]: Lottery, [2]: Emergency
     uint256[3] public rewardDistribution;
-
-    event Stake(address indexed userAddress, uint256 amount);
-    event Unstake(address indexed userAddress, uint256 amount);
-    event ChangeCollateralFactor(address indexed onwerAddress, uint256 factor);
-    event SetPolicyFlow(address _policyFlowAddress);
-    event BuyNewPolicy(
-        address indexed userAddress,
-        uint256 premium,
-        uint256 payout
-    );
-    event OwnerChanged(address oldOwner, address newOwner);
-    event ChangeRewardDistribution(
-        uint256 _toLP,
-        uint256 _toEmergency,
-        uint256 _toLottery
-    );
-    event PurchaseIncentiveChanged(
-        uint256 _blocknumber,
-        uint256 _purchaseIncentiveAmount
-    );
-
-    event SendPurchaseIncentive(address _userAddress, uint256 _amount);
-    event SetFrozenTime(uint256 _newFrozenTime);
-    event PremiumDistributed(
-        uint256 _premiumToEmergency,
-        uint256 _premiumToLottery
-    );
 }

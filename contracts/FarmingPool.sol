@@ -7,13 +7,19 @@ import "./interfaces/ILPToken.sol";
 import "./interfaces/IDegisToken.sol";
 import "./interfaces/IFarmingPool.sol";
 
+/**
+ * @title  Farming Pool
+ * @notice Thank you, MasterChef, yyds.
+ */
+
 contract FarmingPool is IFarmingPool {
     using SafeERC20 for IERC20;
     using SafeERC20 for IDegisToken;
 
     address public owner;
 
-    uint256 public _nextPoolId; // poolId starts from 1, zero means not in the farm
+    // poolId starts from 1, zero means not in the farm
+    uint256 public _nextPoolId;
 
     struct PoolInfo {
         IERC20 lpToken;
@@ -43,6 +49,9 @@ contract FarmingPool is IFarmingPool {
         _nextPoolId = 1;
     }
 
+    // ---------------------------------------------------------------------------------------- //
+    // ************************************** Modifiers *************************************** //
+    // ---------------------------------------------------------------------------------------- //
     modifier onlyOwner() {
         require(msg.sender == owner, "Only the owner can call this function");
         _;
@@ -55,6 +64,10 @@ contract FarmingPool is IFarmingPool {
         require(_address != address(0), "the address can not be zero address");
         _;
     }
+
+    // ---------------------------------------------------------------------------------------- //
+    // *********************************** View Functions ************************************* //
+    // ---------------------------------------------------------------------------------------- //
 
     /**
      * @notice Check the amount of pending degis reward
@@ -93,6 +106,10 @@ contract FarmingPool is IFarmingPool {
         }
     }
 
+    // ---------------------------------------------------------------------------------------- //
+    // ************************************* Set Functions ************************************ //
+    // ---------------------------------------------------------------------------------------- //
+
     /**
      * @notice Set the start block number
      * @param _startBlock New start block number
@@ -100,6 +117,10 @@ contract FarmingPool is IFarmingPool {
     function setStartBlock(uint256 _startBlock) external onlyOwner {
         startBlock = _startBlock;
     }
+
+    // ---------------------------------------------------------------------------------------- //
+    // *********************************** Main Functions ************************************* //
+    // ---------------------------------------------------------------------------------------- //
 
     /**
      * @notice Add a new lp to the pool. Can only be called by the owner.
@@ -317,6 +338,7 @@ contract FarmingPool is IFarmingPool {
      */
     function _alreadyInPool(address _lpTokenAddress)
         internal
+        view
         returns (bool _isInPool)
     {
         uint256 poolId = poolMapping[_lpTokenAddress];

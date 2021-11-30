@@ -5,18 +5,14 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/contracts/PRBMathUD60x18.sol";
 import "./InsurancePoolStore.sol";
+import "./interfaces/IInsurancePool.sol";
 import "./interfaces/IDegisToken.sol";
-import "./interfaces/ILPToken.sol";
-import "./interfaces/IEmergencyPool.sol";
+import "./LPToken.sol";
 import "./interfaces/IDegisLottery.sol";
 
-contract InsurancePool is InsurancePoolStore {
+contract InsurancePool is IInsurancePool, InsurancePoolStore, LPToken {
     using PRBMathUD60x18 for uint256;
     using SafeERC20 for IERC20;
-    // ---------------------------------------------------------------------------------------- //
-    // *********************************** State Variables ************************************ //
-    // ---------------------------------------------------------------------------------------- //
-    string public constant name = "Degis FlightDelay InsurancePool";
 
     address public owner;
 
@@ -26,8 +22,6 @@ contract InsurancePool is InsurancePoolStore {
 
     IDegisToken public DEGIS;
     IERC20 public USDT;
-    IEmergencyPool public emergencyPool;
-    ILPToken public DLPToken;
     IDegisLottery public degisLottery;
 
     // ---------------------------------------------------------------------------------------- //
@@ -38,13 +32,12 @@ contract InsurancePool is InsurancePoolStore {
      * @notice Constructor function
      * @param _degisToken Degis token address
      * @param _emergencyPool Emergency pool address
-     * @param _lptoken LP token address
+     * @param _degisLottery Lottery address
      * @param _usdtAddress USDT address
      */
     constructor(
         address _degisToken,
         address _emergencyPool,
-        address _lptoken,
         address _degisLottery,
         address _usdtAddress
     ) {
@@ -56,8 +49,7 @@ contract InsurancePool is InsurancePoolStore {
 
         DEGIS = IDegisToken(_degisToken);
         USDT = IERC20(_usdtAddress);
-        DLPToken = ILPToken(_lptoken);
-        emergencyPool = IEmergencyPool(_emergencyPool);
+        emergencyPool = _emergencyPool;
         degisLottery = IDegisLottery(_degisLottery);
 
         // Initial LP Value
@@ -125,7 +117,7 @@ contract InsurancePool is InsurancePoolStore {
         view
         returns (uint256 userBalance)
     {
-        uint256 lp_num = DLPToken.balanceOf(_userAddress);
+        uint256 lp_num = LPBalanceOf(_userAddress);
         userBalance = _doMul(lp_num, LPValue);
     }
 
@@ -157,7 +149,7 @@ contract InsurancePool is InsurancePoolStore {
      * @param _userAddress User's address
      * @return _locked User's locked balance (as the locked ratio)
      */
-    function getLockedfor(address _userAddress)
+    function getLockedFor(address _userAddress)
         public
         view
         returns (uint256 _locked)
@@ -242,7 +234,7 @@ contract InsurancePool is InsurancePoolStore {
      * @notice Transfer the ownership to a new owner
      * @param _newOwner New owner address
      */
-    function transferOwnerShip(address _newOwner)
+    function transferOwnership(address _newOwner)
         public
         onlyOwner
         notZeroAddress(_newOwner)
@@ -280,8 +272,6 @@ contract InsurancePool is InsurancePoolStore {
         );
 
         _deposit(_userAddress, _amount);
-
-        emit Stake(_userAddress, _amount);
     }
 
     /**
@@ -545,7 +535,7 @@ contract InsurancePool is InsurancePoolStore {
 
         // LP Token number need to be newly minted
         uint256 lp_num = _doDiv(_amount, LPValue);
-        DLPToken.mint(_userAddress, lp_num);
+        LPMint(_userAddress, lp_num);
 
         userInfo[_userAddress].depositTime = block.timestamp;
 
@@ -570,7 +560,7 @@ contract InsurancePool is InsurancePoolStore {
         USDT.safeTransfer(_userAddress, _amount);
 
         uint256 lp_num = _doDiv(_amount, LPValue);
-        DLPToken.burn(_userAddress, lp_num);
+        LPBurn(_userAddress, lp_num);
 
         emit Unstake(_userAddress, _amount);
     }
@@ -585,11 +575,10 @@ contract InsurancePool is InsurancePoolStore {
         uint256 premiumToEmergency = (_premium *
             _doDiv(rewardDistribution[2], 100)) / 1e18;
 
-        // Transfer some reward to emergency pool and lottery pool
-        USDT.safeTransfer(address(emergencyPool), premiumToEmergency);
-        USDT.safeTransfer(address(degisLottery), premiumToLottery);
+        // Transfer some reward to emergency pool
+        USDT.safeTransfer(emergencyPool, premiumToEmergency);
 
-        // Record this injection
+        // Transfer some reward to lottery
         uint256 currentLotteryId = degisLottery.viewCurrentLotteryId();
         degisLottery.injectFunds(currentLotteryId, premiumToLottery);
 
@@ -601,7 +590,7 @@ contract InsurancePool is InsurancePoolStore {
      * @dev Normally it will update when claim or expire
      */
     function _updateLPValue() internal {
-        uint256 totalLP = IERC20(DLPToken).totalSupply();
+        uint256 totalLP = totalSupply();
         uint256 totalBalance = IERC20(USDT).balanceOf(address(this));
 
         LPValue = _doDiv(totalBalance - activePremiums, totalLP);
