@@ -11,8 +11,8 @@ const SigManager = artifacts.require("SigManager");
 const FarmingPool = artifacts.require("FarmingPool");
 
 // ---------------------------- Const Addresses -------------------------------- //
-const degis_rinkeby = "0x0C970444856f143728e791fbfC3b5f6AD7f417Dd";
-const usdc_rinkeby = "0x93424a368464763b244b761CBA4812D33B5e2f0b";
+const degis_rinkeby = "0x6d3036117de5855e1ecd338838FF9e275009eAc2";
+const usdc_rinkeby = "0xAc141573202C0c07DFE432EAa1be24a9cC97d358";
 
 // This is my own address
 const lottery_rinkeby = "0x90732ED475F841866d9B0b36e5d9D123E2D17400";
@@ -26,7 +26,7 @@ const RINKEBY_LINKTOKEN = "0x01be23585060835e02b77ef475b0cc51aa1e0709";
 const RINKEBY_KEYHASH =
   "0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311";
 
-const buyerToken = "0xA5186070ef5BFD5Ea84B7AaA11D380b759443959";
+const buyerToken = "0x876431DAE3c10273F7B58567419eb40157CcA9Eb";
 
 const fs = require("fs");
 
