@@ -88,14 +88,14 @@ contract SigManager is ISigManager {
      * @notice Check signature when buying a new policy (avoid arbitrary premium amount)
      * @param signature 65 byte array: [[v (1)], [r (32)], [s (32)]]
      * @param _flightNumber Flight number
-     * @param _address User address
+     * @param _userAddress User address
      * @param _premium Policy premium
      * @param _deadline Deadline of a policy
      */
     function checkSignature(
         bytes calldata signature,
         string memory _flightNumber,
-        address _address,
+        address _userAddress,
         uint256 _premium,
         uint256 _deadline
     ) external view {
@@ -103,7 +103,7 @@ contract SigManager is ISigManager {
             abi.encodePacked(
                 _SUBMIT_CLAIM_TYPEHASH,
                 _flightNumber,
-                _address,
+                _userAddress,
                 _premium,
                 _deadline
             )

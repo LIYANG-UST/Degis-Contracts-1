@@ -234,6 +234,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
      * @param _premium Premium of this policy (decimals: 18)
      * @param _departureDate Departure date of this flight (unix timestamp in s, not ms!)
      * @param _landingDate Landing date of this flight (uinx timestamp in s, not ms!)
+     * @param _deadline Deadline for this purchase request
      * @param signature Use web3.eth.sign(hash(data), account) to generate the signature
      */
     function newApplication(

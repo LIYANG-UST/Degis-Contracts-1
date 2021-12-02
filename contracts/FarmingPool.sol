@@ -18,18 +18,20 @@ contract FarmingPool is IFarmingPool {
 
     address public owner;
 
-    // poolId starts from 1, zero means not in the farm
+    // PoolId starts from 1, zero means not in the farm
     uint256 public _nextPoolId;
 
     struct PoolInfo {
-        IERC20 lpToken;
+        address lpToken;
         uint256 degisPerBlock;
         uint256 lastRewardBlock;
         uint256 accDegisPerShare;
     }
-    mapping(address => uint256) poolMapping; // lptoken => poolId
-    mapping(uint256 => bool) isFarming; // poolId => alreadyFarming
-    PoolInfo[] poolList;
+    mapping(address => uint256) public poolMapping; // lptoken => poolId
+
+    mapping(uint256 => bool) public isFarming; // poolId => alreadyFarming
+
+    PoolInfo[] public poolList;
 
     struct UserInfo {
         uint256 rewardDebt; // degis reward debt
@@ -39,12 +41,14 @@ contract FarmingPool is IFarmingPool {
     mapping(uint256 => mapping(address => UserInfo)) userInfo;
 
     // The reward token is degis
-    IDegisToken degis;
+    IDegisToken public degis;
 
     uint256 public startBlock; // Farming starts from a certain block number
 
     constructor(address _degis) {
         degis = IDegisToken(_degis);
+
+        owner = msg.sender;
 
         _nextPoolId = 1;
     }
@@ -52,6 +56,7 @@ contract FarmingPool is IFarmingPool {
     // ---------------------------------------------------------------------------------------- //
     // ************************************** Modifiers *************************************** //
     // ---------------------------------------------------------------------------------------- //
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Only the owner can call this function");
         _;
@@ -71,8 +76,9 @@ contract FarmingPool is IFarmingPool {
 
     /**
      * @notice Check the amount of pending degis reward
-     * @param _poolId: PoolId of this farming pool
-     * @param _userAddress: User address
+     * @param _poolId PoolId of this farming pool
+     * @param _userAddress User address
+     * @return pendingDegisAmount Amount of pending degis
      */
     function pendingDegis(uint256 _poolId, address _userAddress)
         public
@@ -86,7 +92,7 @@ contract FarmingPool is IFarmingPool {
 
         UserInfo storage user = userInfo[_poolId][_userAddress];
 
-        uint256 lp_balance = poolInfo.lpToken.balanceOf(_userAddress);
+        uint256 lp_balance = IERC20(poolInfo.lpToken).balanceOf(_userAddress);
 
         uint256 accDegisPerShare = poolInfo.accDegisPerShare;
 
@@ -104,6 +110,13 @@ contract FarmingPool is IFarmingPool {
         } else {
             return 0;
         }
+    }
+
+    /**
+     * @notice Get the total pool list
+     */
+    function getPoolList() external view returns (PoolInfo[] memory) {
+        return poolList;
     }
 
     // ---------------------------------------------------------------------------------------- //
@@ -124,9 +137,9 @@ contract FarmingPool is IFarmingPool {
 
     /**
      * @notice Add a new lp to the pool. Can only be called by the owner.
-     * @param _lpToken: LP token address
-     * @param _degisPerBlock: Reward distribution per block for this new pool
-     * @param _withUpdate: Whether update all pools' status
+     * @param _lpToken LP token address
+     * @param _degisPerBlock Reward distribution per block for this new pool
+     * @param _withUpdate Whether update all pools' status
      */
     function add(
         address _lpToken,
@@ -148,9 +161,10 @@ contract FarmingPool is IFarmingPool {
             ? block.number
             : startBlock;
 
+        // Push this new pool into the list
         poolList.push(
             PoolInfo({
-                lpToken: IERC20(_lpToken),
+                lpToken: _lpToken,
                 degisPerBlock: _degisPerBlock,
                 lastRewardBlock: lastRewardBlock,
                 accDegisPerShare: 0
@@ -168,9 +182,9 @@ contract FarmingPool is IFarmingPool {
 
     /**
      * @notice Update the degisPerBlock for a specific pool (set to 0 to stop farming)
-     * @param _poolId: Id of the farming pool
-     * @param _degisPerBlock: New reward amount per block
-     * @param _withUpdate: Whether update all the pool
+     * @param _poolId Id of the farming pool
+     * @param _degisPerBlock New reward amount per block
+     * @param _withUpdate Whether update all the pool
      */
     function setDegisReward(
         uint256 _poolId,
@@ -200,8 +214,8 @@ contract FarmingPool is IFarmingPool {
 
     /**
      * @notice Stake LP token into the farming pool
-     * @param _poolId: Id of the farming pool
-     * @param _amount: Staking amount
+     * @param _poolId Id of the farming pool
+     * @param _amount Staking amount
      */
     function stake(uint256 _poolId, uint256 _amount) public {
         PoolInfo storage pool = poolList[_poolId];
@@ -218,7 +232,8 @@ contract FarmingPool is IFarmingPool {
             safeDegisTransfer(msg.sender, pending);
         }
 
-        pool.lpToken.safeTransferFrom(
+        // Approve
+        IERC20(pool.lpToken).safeTransferFrom(
             address(msg.sender),
             address(this),
             _amount
@@ -232,8 +247,8 @@ contract FarmingPool is IFarmingPool {
 
     /**
      * @notice Withdraw lptoken from the pool
-     * @notice _poolId: Id of the farming pool
-     * @notice _amount: Amount of lp tokens to withdraw
+     * @param _poolId Id of the farming pool
+     * @param _amount Amount of lp tokens to withdraw
      */
     function withdraw(uint256 _poolId, uint256 _amount) public {
         PoolInfo storage pool = poolList[_poolId];
@@ -252,21 +267,21 @@ contract FarmingPool is IFarmingPool {
         user.stakingBalance -= _amount;
         user.rewardDebt = user.stakingBalance * pool.accDegisPerShare;
 
-        pool.lpToken.safeTransfer(address(msg.sender), _amount);
+        IERC20(pool.lpToken).safeTransfer(address(msg.sender), _amount);
 
         emit Withdraw(msg.sender, _poolId, _amount);
     }
 
     /**
      * @notice Update the pool's reward status
-     * @param _poolId: Id of the farming pool
+     * @param _poolId Id of the farming pool
      */
     function updatePool(uint256 _poolId) public {
         PoolInfo storage pool = poolList[_poolId];
         if (block.number <= pool.lastRewardBlock) {
             return;
         }
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
+        uint256 lpSupply = IERC20(pool.lpToken).balanceOf(address(this));
         if (lpSupply == 0) {
             pool.lastRewardBlock = block.number;
             return;
@@ -307,20 +322,6 @@ contract FarmingPool is IFarmingPool {
     }
 
     /**
-     * @notice Safe degis transfer (check if the pool has enough DEGIS token)
-     * @param _to User's address
-     * @param _amount Amount to transfer
-     */
-    function safeDegisTransfer(address _to, uint256 _amount) internal {
-        uint256 DegisBalance = degis.balanceOf(address(this));
-        if (_amount > DegisBalance) {
-            degis.transfer(_to, DegisBalance);
-        } else {
-            degis.transfer(_to, _amount);
-        }
-    }
-
-    /**
      * @notice Update all farming pools (except for those stopped ones)
      */
     function massUpdatePools() public {
@@ -330,6 +331,10 @@ contract FarmingPool is IFarmingPool {
             else updatePool(poolId);
         }
     }
+
+    // ---------------------------------------------------------------------------------------- //
+    // ********************************** Internal Functions ********************************** //
+    // ---------------------------------------------------------------------------------------- //
 
     /**
      * @notice Check if a lptoken has been added into the pool before
@@ -345,5 +350,19 @@ contract FarmingPool is IFarmingPool {
         // Never been added
         if (poolId == 0) _isInPool = false;
         else _isInPool = true;
+    }
+
+    /**
+     * @notice Safe degis transfer (check if the pool has enough DEGIS token)
+     * @param _to User's address
+     * @param _amount Amount to transfer
+     */
+    function safeDegisTransfer(address _to, uint256 _amount) internal {
+        uint256 DegisBalance = degis.balanceOf(address(this));
+        if (_amount > DegisBalance) {
+            degis.transfer(_to, DegisBalance);
+        } else {
+            degis.transfer(_to, _amount);
+        }
     }
 }
