@@ -13,6 +13,7 @@ interface IFarmingPool {
     event NewPoolAdded(address _lpToken);
     event RestartFarmingPool(uint256 _poolId, uint256 _blockNumber);
     event StopFarmingPool(uint256 _poolId, uint256 _blockNumber);
+    event PoolUpdated(uint256 _poolId);
 
     error AlreadyInPool(address _lpToken);
 
@@ -35,4 +36,10 @@ interface IFarmingPool {
     function stake(uint256 _poolId, uint256 _amount) external;
 
     function withdraw(uint256 _poolId, uint256 _amount) external;
+
+    function updatePool(uint256 _poolId) external;
+
+    function massUpdatePools() external;
+
+    function harvest(uint256 _poolId, address _to) external;
 }

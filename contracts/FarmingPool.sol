@@ -9,7 +9,8 @@ import "./interfaces/IFarmingPool.sol";
 
 /**
  * @title  Farming Pool
- * @notice Thank you, MasterChef
+ * @notice This contract is similar to MasterChef
+ * @dev    The pool id starts from 1 not 0!
  */
 
 contract FarmingPool is IFarmingPool {
@@ -18,7 +19,7 @@ contract FarmingPool is IFarmingPool {
 
     address public owner;
 
-    // PoolId starts from 0
+    // PoolId starts from 1
     uint256 public _nextPoolId;
 
     struct PoolInfo {
@@ -27,11 +28,11 @@ contract FarmingPool is IFarmingPool {
         uint256 lastRewardBlock;
         uint256 accDegisPerShare;
     }
-    mapping(address => uint256) public poolMapping; // lptoken => poolId
-
-    mapping(uint256 => bool) public isFarming; // poolId => alreadyFarming
-
     PoolInfo[] public poolList;
+
+    mapping(address => uint256) poolMapping; // lptoken => poolId
+
+    mapping(uint256 => bool) isFarming; // poolId => alreadyFarming
 
     struct UserInfo {
         uint256 rewardDebt; // degis reward debt
@@ -50,7 +51,18 @@ contract FarmingPool is IFarmingPool {
 
         owner = msg.sender;
 
-        _nextPoolId = 0;
+        // Start from 1
+        _nextPoolId = 1;
+
+        // Manually fit the poolList[0] to avoid potential misleading
+        poolList.push(
+            PoolInfo({
+                lpToken: address(0),
+                degisPerBlock: 0,
+                lastRewardBlock: 0,
+                accDegisPerShare: 0
+            })
+        );
     }
 
     // ---------------------------------------------------------------------------------------- //
@@ -159,10 +171,11 @@ contract FarmingPool is IFarmingPool {
         address _lpToken,
         uint256 _degisPerBlock,
         bool _withUpdate
-    ) public onlyOwner {
-        // Check if already exists
+    ) public notZeroAddress(_lpToken) onlyOwner {
+        // Check if already exists, if the poolId is 0, that means not in the pool
         bool isInPool = _alreadyInPool(_lpToken);
 
+        // Maybe better to use require, I just want to test this form
         if (isInPool) {
             revert AlreadyInPool(_lpToken);
         }
@@ -308,6 +321,8 @@ contract FarmingPool is IFarmingPool {
 
         pool.accDegisPerShare += degisReward / lpSupply;
         pool.lastRewardBlock = block.number;
+
+        emit PoolUpdated(_poolId);
     }
 
     /**
@@ -352,6 +367,7 @@ contract FarmingPool is IFarmingPool {
 
     /**
      * @notice Check if a lptoken has been added into the pool before
+     * @dev This can be written as a modifier, I just want to test the error form
      * @param _lpTokenAddress LP token address
      * @return _isInPool Wether this lp already in pool
      */
