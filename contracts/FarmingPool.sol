@@ -18,7 +18,7 @@ contract FarmingPool is IFarmingPool {
 
     address public owner;
 
-    // PoolId starts from 1, zero means not in the farm
+    // PoolId starts from 0
     uint256 public _nextPoolId;
 
     struct PoolInfo {
@@ -50,7 +50,7 @@ contract FarmingPool is IFarmingPool {
 
         owner = msg.sender;
 
-        _nextPoolId = 1;
+        _nextPoolId = 0;
     }
 
     // ---------------------------------------------------------------------------------------- //
