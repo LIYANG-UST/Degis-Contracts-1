@@ -9,7 +9,7 @@ import "./interfaces/IFarmingPool.sol";
 
 /**
  * @title  Farming Pool
- * @notice Thank you, MasterChef, yyds.
+ * @notice Thank you, MasterChef
  */
 
 contract FarmingPool is IFarmingPool {
@@ -38,7 +38,7 @@ contract FarmingPool is IFarmingPool {
         uint256 stakingBalance; // the amount of a user's staking in the pool
     }
     // poolId => userAddress => userInfo
-    mapping(uint256 => mapping(address => UserInfo)) userInfo;
+    mapping(uint256 => mapping(address => UserInfo)) public userInfo;
 
     // The reward token is degis
     IDegisToken public degis;
@@ -117,6 +117,20 @@ contract FarmingPool is IFarmingPool {
      */
     function getPoolList() external view returns (PoolInfo[] memory) {
         return poolList;
+    }
+
+    /**
+     * @notice Get user balance
+     * @param _poolId Id of the pool
+     * @param _userAddress Address of the user
+     * @return _balance User's balance (lpToken)
+     */
+    function getUserBalance(uint256 _poolId, address _userAddress)
+        external
+        view
+        returns (uint256 _balance)
+    {
+        return userInfo[_poolId][_userAddress].stakingBalance;
     }
 
     // ---------------------------------------------------------------------------------------- //
