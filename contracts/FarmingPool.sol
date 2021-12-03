@@ -30,9 +30,9 @@ contract FarmingPool is IFarmingPool {
     }
     PoolInfo[] public poolList;
 
-    mapping(address => uint256) poolMapping; // lptoken => poolId
+    mapping(address => uint256) public poolMapping; // lptoken => poolId
 
-    mapping(uint256 => bool) isFarming; // poolId => alreadyFarming
+    mapping(uint256 => bool) public isFarming; // poolId => alreadyFarming
 
     struct UserInfo {
         uint256 rewardDebt; // degis reward debt
@@ -319,7 +319,7 @@ contract FarmingPool is IFarmingPool {
         // Don't forget to set the farming pool as minter
         degis.mint(address(this), degisReward);
 
-        pool.accDegisPerShare += degisReward / lpSupply;
+        pool.accDegisPerShare += (degisReward / lpSupply) * 1e18;
         pool.lastRewardBlock = block.number;
 
         emit PoolUpdated(_poolId);
@@ -340,7 +340,7 @@ contract FarmingPool is IFarmingPool {
             user.rewardDebt;
 
         // Effects
-        user.rewardDebt = user.stakingBalance * pool.accDegisPerShare;
+        user.rewardDebt = (user.stakingBalance * pool.accDegisPerShare) / 1e18;
 
         // Interactions
         if (pendingReward != 0) {

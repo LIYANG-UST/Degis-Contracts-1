@@ -28,10 +28,7 @@ contract SigManager is ISigManager {
         owner = msg.sender;
 
         _SUBMIT_APPLICATION_TYPEHASH = keccak256(
-            "DegisNewApplication(uint256 premium,uint256 payoff)"
-        );
-        _SUBMIT_CLAIM_TYPEHASH = keccak256(
-            "DegisSubmitClaim(uint256 policyOrder,uint256 premium,uint256 payoff)"
+            "5G is great, physical lab is difficult to find"
         );
     }
 
@@ -99,10 +96,11 @@ contract SigManager is ISigManager {
         uint256 _premium,
         uint256 _deadline
     ) external view {
+        bytes32 hashedFlightNumber = keccak256(bytes(_flightNumber));
         bytes32 hashData = keccak256(
             abi.encodePacked(
                 _SUBMIT_CLAIM_TYPEHASH,
-                _flightNumber,
+                hashedFlightNumber,
                 _userAddress,
                 _premium,
                 _deadline
