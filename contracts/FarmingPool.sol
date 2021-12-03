@@ -3,6 +3,7 @@ pragma solidity 0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "prb-math/contracts/PRBMathUD60x18.sol";
 import "./interfaces/ILPToken.sol";
 import "./interfaces/IDegisToken.sol";
 import "./interfaces/IFarmingPool.sol";
@@ -10,10 +11,11 @@ import "./interfaces/IFarmingPool.sol";
 /**
  * @title  Farming Pool
  * @notice This contract is similar to MasterChef
- * @dev    The pool id starts from 1 not 0!
+ * @dev    The pool id starts from 1 not 0
  */
 
 contract FarmingPool is IFarmingPool {
+    using PRBMathUD60x18 for uint256;
     using SafeERC20 for IERC20;
     using SafeERC20 for IDegisToken;
 
@@ -394,5 +396,21 @@ contract FarmingPool is IFarmingPool {
         } else {
             degis.transfer(_to, _amount);
         }
+    }
+
+    /**
+     * @notice Do division via PRBMath
+     * @dev    E.g. doDiv(1, 1) = 1e18  doDiv(1, 10) = 1e17 doDiv(10, 1) = 1e19
+     */
+    function _doDiv(uint256 x, uint256 y) internal pure returns (uint256) {
+        return PRBMathUD60x18.div(x, y);
+    }
+
+    /**
+     * @notice Do multiplication via PRBMath
+     * @dev    E.g. doMul(1, 1) = 1e18  doMul(2, 5) = 1e19
+     */
+    function _doMul(uint256 x, uint256 y) internal pure returns (uint256) {
+        return PRBMathUD60x18.mul(x, y);
     }
 }

@@ -7,9 +7,16 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "./interfaces/IPolicyFlow.sol";
 import "./interfaces/IPolicyToken.sol";
 
+/**
+ * @title  Policy Token for flight delay
+ * @notice ERC721 policy token
+ *         Can get a long string form of the tokenURI
+ *         When the ownership is transferred, it will update the status in policyFlow
+ */
 contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
     using Strings for uint256;
 
+    // PolicyFlow contract interface
     IPolicyFlow policyFlow;
 
     uint256 public _nextId;
@@ -23,7 +30,7 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
     }
 
     // ---------------------------------------------------------------------------------------- //
-    // ************************************ View Function ************************************* //
+    // ************************************ View Functions ************************************ //
     // ---------------------------------------------------------------------------------------- //
 
     /**
@@ -51,20 +58,20 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
     }
 
     // ---------------------------------------------------------------------------------------- //
-    // ************************************ Owner Function ************************************ //
+    // ************************************ Owner Functions *********************************** //
     // ---------------------------------------------------------------------------------------- //
 
     /**
        @notice Update the policyFlow address if it has been updated
-       @param _policyFlow: New policyFlow contract address
+       @param _policyFlow New policyFlow contract address
      */
     function updatePolicyFlow(address _policyFlow) external onlyOwner {
         policyFlow = IPolicyFlow(_policyFlow);
     }
 
     /**
-     * @notice Mint a new policy token to an address
-     * @param _to: The receiver address
+     * @notice Mint a new policy token to an address (test function, removed after online)
+     * @param _to The receiver address
      */
     function mintPolicyToken(address _to) public onlyOwner {
         uint256 tokenId = _nextId++;
@@ -77,9 +84,10 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
 
     /**
      * @notice Transfer the owner of a policy token and update the information in policyFlow
-     * @param _from: The original owner of the policy
-     * @param _to: The new owner of the policy
-     * @param _tokenId: Token id of the policy
+     * @dev Need approval and is prepared for secondary market
+     * @param _from The original owner of the policy
+     * @param _to The new owner of the policy
+     * @param _tokenId Token id of the policy
      */
     function transferOwner(
         address _from,
@@ -90,13 +98,9 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
         policyFlow.policyOwnerTransfer(_tokenId, _from, _to);
     }
 
-    // ---------------------------------------------------------------------------------------- //
-    // *********************************** Internal Functions ********************************* //
-    // ---------------------------------------------------------------------------------------- //
-
     /**
      * @notice Get the tokenURI, the metadata is from policyFlow contract
-     * @param _tokenId: Token Id of the policy token
+     * @param _tokenId Token Id of the policy token
      */
     function getTokenURI(uint256 _tokenId) public view returns (string memory) {
         PolicyInfo memory info = policyFlow.getPolicyInfoById(_tokenId);
@@ -117,6 +121,10 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
                 )
             );
     }
+
+    // ---------------------------------------------------------------------------------------- //
+    // *********************************** Internal Functions ********************************* //
+    // ---------------------------------------------------------------------------------------- //
 
     /**
      * @notice Construct the metadata of a specific policy token
@@ -165,8 +173,8 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
 
     /**
      * @notice Bytes to string (not human-readable form)
-     * @param _bytes: Input bytes
-     * @return String form
+     * @param _bytes Input bytes
+     * @return stringBytes String form of the bytes
      */
     function byToString(bytes32 _bytes) internal pure returns (string memory) {
         return (uint256(_bytes)).toHexString(32);
@@ -174,8 +182,8 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
 
     /**
      * @notice Transfer address to string (not change the content)
-     * @param _addr: Input address
-     * @return String form
+     * @param _addr Input address
+     * @return stringAddress String form of the address
      */
     function addressToString(address _addr)
         internal

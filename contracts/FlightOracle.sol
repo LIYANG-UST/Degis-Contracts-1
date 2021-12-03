@@ -50,22 +50,30 @@ contract FlightOracle is ChainlinkClient {
     // ************************************ Set Functions ************************************* //
     // ---------------------------------------------------------------------------------------- //
 
-    // Set a new url
+    /**
+     * @notice Set a new url
+     */
     function setURL(string memory _url) external onlyOwner {
         FLIGHT_STATUS_URL = _url;
     }
 
-    // Set the oracle address
+    /**
+     * @notice Set the oracle address
+     */
     function setOracleAddress(address _newOracle) external onlyOwner {
         oracleAddress = _newOracle;
     }
 
-    // Set a new job id
+    /**
+     * @notice Set a new job id
+     */
     function setJobId(bytes32 _newJobId) external onlyOwner {
         jobId = _newJobId;
     }
 
-    // Set a new policy flow
+    /**
+     * @notice Change the policy flow contract address
+     */
     function setPolicyFlow(address _policyFlow) external onlyOwner {
         policyFlow = IPolicyFlow(_policyFlow);
     }

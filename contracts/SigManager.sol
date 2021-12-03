@@ -18,12 +18,8 @@ contract SigManager is ISigManager {
 
     mapping(address => bool) _isValidSigner;
 
-    bytes32 internal _SUBMIT_APPLICATION_TYPEHASH;
-    bytes32 internal _SUBMIT_CLAIM_TYPEHASH;
+    bytes32 public _SUBMIT_APPLICATION_TYPEHASH;
 
-    /**
-     *
-     */
     constructor() {
         owner = msg.sender;
 
@@ -32,21 +28,32 @@ contract SigManager is ISigManager {
         );
     }
 
+    // ---------------------------------------------------------------------------------------- //
+    // ************************************** Modifiers *************************************** //
+    // ---------------------------------------------------------------------------------------- //
     modifier onlyOwner() {
         require(msg.sender == owner, "only the owner can call this function");
         _;
     }
 
-    modifier notZeroAddress() {
-        require(msg.sender != address(0), "can not use zero address");
+    modifier notZeroAddress(address _address) {
+        require(_address != address(0), "can not use zero address");
         _;
     }
+
+    // ---------------------------------------------------------------------------------------- //
+    // ************************************ Set Functions ************************************* //
+    // ---------------------------------------------------------------------------------------- //
 
     /**
      * @notice Add a signer into valid signer list
      * @param _newSigner The new signer address
      */
-    function addSigner(address _newSigner) external notZeroAddress onlyOwner {
+    function addSigner(address _newSigner)
+        external
+        notZeroAddress(_newSigner)
+        onlyOwner
+    {
         require(
             isValidSigner(_newSigner) == false,
             "this address is already a signer"
@@ -61,7 +68,7 @@ contract SigManager is ISigManager {
      */
     function removeSigner(address _oldSigner)
         external
-        notZeroAddress
+        notZeroAddress(_oldSigner)
         onlyOwner
     {
         require(
@@ -72,6 +79,10 @@ contract SigManager is ISigManager {
         emit SignerRemoved(_oldSigner);
     }
 
+    // ---------------------------------------------------------------------------------------- //
+    // ************************************ View Functions ************************************ //
+    // ---------------------------------------------------------------------------------------- //
+
     /**
      * @notice Check whether the address is a valid signer
      * @param _address The input address
@@ -80,6 +91,10 @@ contract SigManager is ISigManager {
     function isValidSigner(address _address) public view returns (bool) {
         return _isValidSigner[_address];
     }
+
+    // ---------------------------------------------------------------------------------------- //
+    // ************************************ Main Functions ************************************ //
+    // ---------------------------------------------------------------------------------------- //
 
     /**
      * @notice Check signature when buying a new policy (avoid arbitrary premium amount)
@@ -99,7 +114,7 @@ contract SigManager is ISigManager {
         bytes32 hashedFlightNumber = keccak256(bytes(_flightNumber));
         bytes32 hashData = keccak256(
             abi.encodePacked(
-                _SUBMIT_CLAIM_TYPEHASH,
+                _SUBMIT_APPLICATION_TYPEHASH,
                 hashedFlightNumber,
                 _userAddress,
                 _premium,
