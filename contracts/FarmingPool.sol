@@ -252,8 +252,8 @@ contract FarmingPool is IFarmingPool {
         updatePool(_poolId);
 
         if (user.stakingBalance > 0) {
-            uint256 pending = user.stakingBalance *
-                pool.accDegisPerShare -
+            uint256 pending = (user.stakingBalance * pool.accDegisPerShare) /
+                1e18 -
                 user.rewardDebt;
 
             safeDegisTransfer(msg.sender, pending);
@@ -267,7 +267,7 @@ contract FarmingPool is IFarmingPool {
         );
 
         user.stakingBalance += _amount;
-        user.rewardDebt = user.stakingBalance * pool.accDegisPerShare;
+        user.rewardDebt = (user.stakingBalance * pool.accDegisPerShare) / 1e18;
 
         emit Stake(msg.sender, _poolId, _amount);
     }
@@ -285,14 +285,14 @@ contract FarmingPool is IFarmingPool {
 
         updatePool(_poolId);
 
-        uint256 pending = user.stakingBalance *
-            pool.accDegisPerShare -
+        uint256 pending = (user.stakingBalance * pool.accDegisPerShare) /
+            1e18 -
             user.rewardDebt;
 
         safeDegisTransfer(msg.sender, pending);
 
         user.stakingBalance -= _amount;
-        user.rewardDebt = user.stakingBalance * pool.accDegisPerShare;
+        user.rewardDebt = (user.stakingBalance * pool.accDegisPerShare) / 1e18;
 
         IERC20(pool.lpToken).safeTransfer(address(msg.sender), _amount);
 
