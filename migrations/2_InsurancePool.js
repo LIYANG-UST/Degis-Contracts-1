@@ -15,7 +15,7 @@ const degis_rinkeby = "0x6d3036117de5855e1ecd338838FF9e275009eAc2";
 const usdc_rinkeby = "0xAc141573202C0c07DFE432EAa1be24a9cC97d358";
 
 // This is my own address
-const lottery_rinkeby = "0x90732ED475F841866d9B0b36e5d9D123E2D17400";
+const lottery_rinkeby = "0xa85D352ED54952E2C4e147B43A7D461bb395CbeE";
 
 // Rinkeby VRF
 const RINKEBY_VRF_COORDINATOR = "0xb3dCcb4Cf7a26f6cf6B120Cf5A73875B7BBc655B";
