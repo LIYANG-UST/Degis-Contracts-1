@@ -1,6 +1,5 @@
 // ---------------------------- Load the Smart Contracts -------------------------------- //
 const DegisToken = artifacts.require("DegisToken");
-const LPToken = artifacts.require("LPToken");
 const InsurancePool = artifacts.require("InsurancePool");
 const MockUSD = artifacts.require("MockUSD");
 
@@ -81,7 +80,6 @@ module.exports = async function (deployer, network) {
   } else if (network.startsWith("development")) {
     await deployer.deploy(MockUSD);
     await deployer.deploy(DegisToken);
-    await deployer.deploy(LPToken);
     await deployer.deploy(PolicyToken);
     await deployer.deploy(EmergencyPool);
     await deployer.deploy(
