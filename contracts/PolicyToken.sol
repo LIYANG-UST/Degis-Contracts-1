@@ -73,7 +73,11 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
      * @notice Mint a new policy token to an address (test function, removed after online)
      * @param _to The receiver address
      */
-    function mintPolicyToken(address _to) public onlyOwner {
+    function mintPolicyToken(address _to) public {
+        require(
+            msg.sender == owner() || msg.sender == address(policyFlow),
+            "only the owner or the policyflow"
+        );
         uint256 tokenId = _nextId++;
         _mint(_to, tokenId);
     }

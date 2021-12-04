@@ -1,10 +1,11 @@
 // ---------------------------- Load the Smart Contracts -------------------------------- //
 const DegisToken = artifacts.require("DegisToken");
-const LPToken = artifacts.require("LPToken"); // only deploy once
+const LPToken = artifacts.require("LPToken");
 const InsurancePool = artifacts.require("InsurancePool");
+const MockUSD = artifacts.require("MockUSD");
 
 const PolicyFlow = artifacts.require("PolicyFlow");
-const PolicyToken = artifacts.require("PolicyToken"); // only deploy once
+const PolicyToken = artifacts.require("PolicyToken");
 const EmergencyPool = artifacts.require("EmergencyPool");
 const FlightOracle = artifacts.require("FlightOracle");
 const SigManager = artifacts.require("SigManager");
@@ -81,14 +82,28 @@ module.exports = async function (deployer, network) {
     await deployer.deploy(MockUSD);
     await deployer.deploy(DegisToken);
     await deployer.deploy(LPToken);
+    await deployer.deploy(PolicyToken);
     await deployer.deploy(EmergencyPool);
     await deployer.deploy(
       InsurancePool,
       DegisToken.address,
       EmergencyPool.address,
-      LPToken.address,
       lottery_rinkeby,
       MockUSD.address
     );
+
+    await deployer.deploy(SigManager);
+
+    await deployer.deploy(
+      PolicyFlow,
+      InsurancePool.address,
+      PolicyToken.address,
+      SigManager.address,
+      buyerToken
+    );
+
+    await deployer.deploy(FlightOracle, PolicyFlow.address);
+
+    await deployer.deploy(FarmingPool, DegisToken.address);
   }
 };

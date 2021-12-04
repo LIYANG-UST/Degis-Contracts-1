@@ -106,7 +106,7 @@ contract FarmingPool is IFarmingPool {
 
         UserInfo storage user = userInfo[_poolId][_userAddress];
 
-        uint256 lp_balance = IERC20(poolInfo.lpToken).balanceOf(_userAddress);
+        uint256 lp_balance = IERC20(poolInfo.lpToken).balanceOf(address(this));
 
         uint256 accDegisPerShare = poolInfo.accDegisPerShare;
 

@@ -1,13 +1,6 @@
-const PolicyFlow = artifacts.require("PolicyFlow");
-const USD = artifacts.require("MockUSD");
 const sigManager = artifacts.require("SigManager");
 
-const pf_address = "0x44A6F2AAC75395b2CE5338cAEE463E635EB5C005";
-
-const sigm_add = "0xF9b59ee7DFC5176DF85fd7d5510B7Ad9Ae1D73Fc";
-
-let approve_amount =
-  "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+const sigm_add = "0x32F73De8c7236a0f50f1Cd05349879caD0cBfA9a";
 
 module.exports = async (callback) => {
   try {
