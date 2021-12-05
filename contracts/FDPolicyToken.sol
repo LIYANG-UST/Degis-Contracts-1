@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "./interfaces/IPolicyFlow.sol";
-import "./interfaces/IPolicyToken.sol";
+import "./interfaces/IFDPolicyToken.sol";
 
 /**
  * @title  Policy Token for flight delay
@@ -13,7 +13,7 @@ import "./interfaces/IPolicyToken.sol";
  *         Can get a long string form of the tokenURI
  *         When the ownership is transferred, it will update the status in policyFlow
  */
-contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
+contract FDPolicyToken is ERC721Enumerable, Ownable, IFDPolicyToken {
     using Strings for uint256;
 
     // PolicyFlow contract interface
@@ -25,7 +25,7 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
     // ************************************* Constructor ************************************** //
     // ---------------------------------------------------------------------------------------- //
 
-    constructor() ERC721("DegisPolicyToken", "DEGISPT") {
+    constructor() ERC721("Degis_FlightDelay_PolicyToken", "DEGIS_FD_PT") {
         _nextId = 1;
     }
 
@@ -50,7 +50,7 @@ contract PolicyToken is ERC721Enumerable, Ownable, IPolicyToken {
     function tokenURI(uint256 _tokenId)
         public
         view
-        override(ERC721, IPolicyToken)
+        override(ERC721, IFDPolicyToken)
         returns (string memory)
     {
         require(_tokenId < _nextId, "error, tokenId too large!");

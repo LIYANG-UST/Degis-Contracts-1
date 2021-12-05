@@ -17,14 +17,13 @@ contract FlightOracle is ChainlinkClient {
 
     IPolicyFlow public policyFlow;
 
-    string private FLIGHT_STATUS_URL = "http://39.101.132.228:8000/live/";
     address private oracleAddress;
     bytes32 private jobId;
 
-    constructor(address _policyFlow) {
+    constructor(address _policyFlow, address _link) {
         policyFlow = IPolicyFlow(_policyFlow);
 
-        setPublicChainlinkToken();
+        setChainlinkToken(_link);
     }
 
     // ---------------------------------------------------------------------------------------- //
@@ -49,13 +48,6 @@ contract FlightOracle is ChainlinkClient {
     // ---------------------------------------------------------------------------------------- //
     // ************************************ Set Functions ************************************* //
     // ---------------------------------------------------------------------------------------- //
-
-    /**
-     * @notice Set a new url
-     */
-    function setURL(string memory _url) external onlyOwner {
-        FLIGHT_STATUS_URL = _url;
-    }
 
     /**
      * @notice Set the oracle address

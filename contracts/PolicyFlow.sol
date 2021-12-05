@@ -4,7 +4,7 @@ pragma solidity 0.8.9;
 import "./interfaces/IInsurancePool.sol";
 import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "./interfaces/IPolicyToken.sol";
+import "./interfaces/IFDPolicyToken.sol";
 import "./interfaces/IPolicyFlow.sol";
 import "./interfaces/IFlightOracle.sol";
 import "./interfaces/ISigManager.sol";
@@ -29,8 +29,10 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
     uint256 constant PRODUCT_ID = 0;
 
     uint256 public oracleResponse; // A test variable to store the oracle address
+
     uint256 fee;
-    string private FLIGHT_STATUS_URL = "http://39.101.132.228:8000/live/";
+    string public FLIGHT_STATUS_URL =
+        "https://18.163.254.50:3207/flight_status?";
 
     mapping(bytes32 => uint256) requestList; // requestId => policyId
     mapping(uint256 => uint256) resultList; // policyId => delay result
@@ -39,7 +41,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
     ISigManager sigManager;
     IInsurancePool insurancePool;
-    IPolicyToken policyToken;
+    IFDPolicyToken policyToken;
     IFlightOracle flightOracle;
     IBuyerToken buyerToken;
 
@@ -71,12 +73,12 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
 
         // Other contracts' interfaces
         insurancePool = IInsurancePool(_insurancePool);
-        policyToken = IPolicyToken(_policyToken);
+        policyToken = IFDPolicyToken(_policyToken);
         buyerToken = IBuyerToken(_buyerToken);
         sigManager = ISigManager(_sigManager);
 
         // Set oracle parameter
-        fee = 1 * 10**18; // 1 LINK
+        fee = 1e17; // 0.1 LINK
     }
 
     // ----------------------------------------------------------------------------------- //
@@ -209,6 +211,13 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
     }
 
     /**
+     * @notice Set a new url
+     */
+    function setURL(string memory _url) external onlyOwner {
+        FLIGHT_STATUS_URL = _url;
+    }
+
+    /**
      * @notice Set the new delay threshold used for calculating payoff
      * @param _thresholdMin New minimum threshold
      * @param _thresholdMax New maximum threshold
@@ -273,7 +282,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
         // Generate the policy
         uint256 currentPolicyId = Total_Policies;
         policyList[currentPolicyId] = PolicyInfo(
-            _productId,
+            PRODUCT_ID,
             msg.sender,
             currentPolicyId,
             _flightNumber,
@@ -323,6 +332,7 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
         bool _forceUpdate
     ) public {
         // Can not get the result before landing date
+        // Landing date may not be true, may be a fixed interval (4hours)
         require(
             block.timestamp >= policyList[_policyId].landingDate,
             "Can only claim a policy after its landing"
@@ -355,8 +365,9 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
         string memory _url = string(
             abi.encodePacked(
                 FLIGHT_STATUS_URL,
+                "flight_no=",
                 _flightNumber,
-                "/timestamp=",
+                "&timestamp=",
                 _date
             )
         );
@@ -426,6 +437,11 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
         uint256 premium = policy.premium;
         address buyerAddress = policy.buyerAddress;
 
+        require(
+            _result <= DELAY_THRESHOLD_MAX || _result == 400,
+            "Abnormal oracle result, result should be [0 - 240] or 400"
+        );
+
         if (_result == 0) {
             // 0: on time
             policyExpired(premium, MAX_PAYOFF, buyerAddress, policyId);
@@ -435,8 +451,6 @@ contract PolicyFlow is ChainlinkClient, IPolicyFlow {
         } else if (_result == 400) {
             // 400: cancelled
             _policyClaimed(premium, MAX_PAYOFF, buyerAddress, policyId);
-        } else {
-            policyExpired(premium, MAX_PAYOFF, buyerAddress, policyId);
         }
 
         emit FulfilledOracleRequest(policyId, _requestId);
