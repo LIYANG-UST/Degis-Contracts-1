@@ -8,7 +8,7 @@ import "./interfaces/IFDPolicyToken.sol";
 import "./interfaces/IPolicyFlow.sol";
 import "./interfaces/IFlightOracle.sol";
 import "./interfaces/ISigManager.sol";
-import "./interfaces/IBuyerToken.sol";
+import "./interfaces/tokens/IBuyerToken.sol";
 
 /**
  * @title  PolicyFlow

@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/contracts/PRBMathUD60x18.sol";
 import "./InsurancePoolStore.sol";
 import "./interfaces/IInsurancePool.sol";
-import "./interfaces/IDegisToken.sol";
+import "./interfaces/tokens/IDegisToken.sol";
 import "./LPToken.sol";
 import "./interfaces/IDegisLottery.sol";
 

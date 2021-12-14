@@ -1,7 +1,0 @@
-{
-  "pathToRoot": "./",
-  "outputPath": "./docs",
-  "noCompilation": false,
-  "compiler": "truffle compile --all",
-  "language": "en"
-}

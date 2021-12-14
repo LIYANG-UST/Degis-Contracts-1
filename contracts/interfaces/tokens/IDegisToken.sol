@@ -5,10 +5,6 @@ pragma solidity 0.8.9;
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/**
- * @dev Based on the interface of the ERC20 standard.
- * Just add some boring functions.
- */
 interface IDegisToken is IERC20, IERC20Permit {
     // ---------------------------------------------------------------------------------------- //
     // *************************************** Functions ************************************** //
